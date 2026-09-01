@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=20260706b">
+  <link rel="stylesheet" href="/static/css/main.css?v=20260706b">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <header class="header home-hero">
+    <div class="header-left">
+      <div class="hero-eyebrow">Inverter Control Center</div>
+      <h1>{{.ApplicationDisplayName}}</h1>
+      <p>Единый экран для инверторов, расписаний, шаблонов, задач и логирования.</p>
+      <div class="hero-app-name-note">Название берётся из настроек приложения. Если оно не задано, используется имя инвертора.</div>
+      <div class="hero-actions">
+        <a href="/schedules" class="btn btn-primary">Открыть расписание инвертора</a>
+        <a href="/settings" class="btn btn-secondary">Настройки</a>
+        <a href="/api/docs" class="btn btn-secondary">API документация</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="home-quick-grid">
+    <a class="home-quick-card" href="/schedules"><span>◷</span><strong>Расписание</strong><small>Открыть редактор расписания первого инвертора</small></a>
+    <a class="home-quick-card" href="/templates/list"><span>▦</span><strong>Шаблоны</strong><small>Список, создание и применение шаблонов</small></a>
+    <a class="home-quick-card" href="/tasks/settings"><span>⏱</span><strong>Периодические задачи</strong><small>Scheduler, запуск и интервалы</small></a>
+    <a class="home-quick-card" href="/inverter-logging"><span>▣</span><strong>Логирование</strong><small>Файлы логов, экспорт и диагностика</small></a>
+    <a class="home-quick-card" href="/log-delivery"><span>✉</span><strong>Рассылка XLSX</strong><small>Email, Telegram, Yandex Disk, WebDAV и Google Drive</small></a>
+    <a class="home-quick-card" href="#inverterScreenDetails"><span>▤</span><strong>Визуализация</strong><small>Экран инвертора без фоновых запросов</small></a>
+  </section>
+
+  <section class="card dashboard-card premium-dashboard">
+    <div class="dashboard-head">
+      <div>
+        <h2>Dashboard инвертора</h2>
+        <p class="muted">Быстрые действия, визуализация экрана и работа с архивом показаний.</p>
+      </div>
+      <div class="dashboard-last-badge">
+        <span>Последнее получение данных</span>
+        <strong>{{.TimeOverview.LastDataReceived}}</strong>
+        <small>{{.TimeOverview.LastDataAgo}}</small>
+      </div>
+    </div>
+
+    <div class="clock-grid">
+      <div class="digital-clock-card">
+        <div class="clock-label">1. Время системы</div>
+        <div class="digital-clock">{{.TimeOverview.SystemClock}}</div>
+        <div class="clock-date">{{.TimeOverview.SystemDate}}</div>
+      </div>
+      <div class="digital-clock-card accent-clock">
+        <div class="clock-label">2. Система + timezone</div>
+        <div class="digital-clock">{{.TimeOverview.SystemTimezoneClock}}</div>
+        <div class="clock-date">{{.TimeOverview.SystemTimezoneDate}} · {{.TimeOverview.SystemTimezoneLabel}}</div>
+      </div>
+      <div class="digital-clock-card inverter-clock-card">
+        <div class="clock-label">3. Время инвертора</div>
+        <div class="digital-clock">{{.TimeOverview.InverterClock}}</div>
+        <div class="clock-date">{{.TimeOverview.InverterDate}} · {{.TimeOverview.InverterTimeStatus}}</div>
+      </div>
+    </div>
+
+    <div class="dashboard-meta dashboard-meta-large">
+      <span class="chip">Инвертор: {{if .Dashboard.InverterModelName}}{{.Dashboard.InverterModelName}}{{else}}—{{end}}</span>
+      <span class="chip">Профиль: {{if .Dashboard.ParametersFile}}{{.Dashboard.ParametersFile}}{{else}}—{{end}}</span>
+      <span class="chip">Активное расписание: {{if .Dashboard.ActiveScheduleName}}{{.Dashboard.ActiveScheduleName}}{{else}}—{{end}}</span>
+      <span class="chip">Активный шаблон: {{if .Dashboard.ActiveTemplateName}}{{.Dashboard.ActiveTemplateName}}{{else}}—{{end}}</span>
+      <span class="chip">Use Timer bitmask: {{.Dashboard.ActiveUseTimerMask}}</span>
+      <span class="chip">Последний файл: {{if .Dashboard.LatestLogFile}}{{.Dashboard.LatestLogFile}}{{else}}—{{end}}</span>
+      <span class="chip">Время инвертора в логе: {{if .Dashboard.LatestInverterTimestamp}}{{.Dashboard.LatestInverterTimestamp}}{{else}}—{{end}}</span>
+    </div>
+
+    <details class="inverter-screen-details" id="inverterScreenDetails">
+      <summary>
+        <span>Визуализация экрана инвертора</span>
+        <strong id="inverterScreenToggleLabel">Открыть</strong>
+      </summary>
+      <div class="inverter-screen-panel">
+        <div class="screen-toolbar">
+          <div>
+            <h3>Текущее расписание на экране инвертора</h3>
+            <p class="muted">Запрос к инвертору выполняется только при открытии блока или по кнопке обновления.</p>
+          </div>
+          <button type="button" class="btn btn-primary" id="refreshInverterScreenBtn">Обновить значения</button>
+        </div>
+        <div class="screen-status muted" id="inverterScreenStatus">Откройте блок, чтобы прочитать регистры расписания из профиля выбранного инвертора.</div>
+        <div class="screen-tabs" role="tablist" aria-label="Страницы визуализации экрана инвертора">
+          <button type="button" class="screen-tab active" data-screen-page="schedule">Страница 1 · Расписание</button>
+          <button type="button" class="screen-tab" data-screen-page="settings">Страница 2 · Режимы</button>
+        </div>
+        <div class="inverter-lcd screen-page active" id="screenPageSchedule" data-screen-page-panel="schedule">
+          <div class="lcd-title-row">
+            <strong>Задание расписания инвертора</strong>
+            <span id="inverterScreenTarget">—</span>
+          </div>
+          <div class="lcd-table-wrap">
+            <table class="lcd-table">
+              <thead><tr><th>GRID/СН</th><th>GEN</th><th>SELL</th><th colspan="2">TIME</th><th>POWER</th><th>BATT%</th></tr></thead>
+              <tbody id="inverterScreenRows">
+                <tr><td colspan="7" class="muted">Данные появятся после открытия блока.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="inverter-lcd screen-page" id="screenPageSettings" data-screen-page-panel="settings">
+          <div class="lcd-title-row">
+            <strong>Параметры режима инвертора</strong>
+            <span>Адреса определяются выбранным JSON-профилем</span>
+          </div>
+          <div class="screen-settings-grid" id="inverterScreenSettingsRows">
+            <div class="screen-setting-empty muted">Данные появятся после открытия блока.</div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="dashboard-panel log-export-home-panel">
+      <div class="panel-title-row"><h3>Выгрузка лога инвертора за период</h3><a href="/inverter-logging" class="btn btn-secondary">Открыть раздел логирования</a></div>
+      <p class="muted">Быстрая выгрузка архива показаний. Для расширенного выбора столбцов используйте раздел “Логирование инвертора”.</p>
+      <form method="GET" action="/api/inverter-logs/export" target="_blank" class="home-export-form">
+        <div class="field"><label>С даты/времени</label><input name="from" type="datetime-local"></div>
+        <div class="field"><label>По дату/времени</label><input name="to" type="datetime-local"></div>
+        <div class="field"><label>Формат</label><select name="format"><option value="xlsx">XLSX</option><option value="txt">TXT / JSONL</option></select></div>
+        <div class="field field-actions"><label>&nbsp;</label><button type="submit" class="btn btn-primary">Выгрузить лог</button></div>
+      </form>
+    </div>
+
+    <div class="dashboard-panel">
+      <div class="panel-title-row"><h3>Сравнение последних записей</h3><span class="muted">Берутся последние строки inverter log</span></div>
+      <div class="mini-table-wrap"><table class="mini-table compare-table"><thead><tr><th>Дата/время сбора</th><th>Время инвертора</th>{{range .Dashboard.CompareHeaders}}<th>{{.Label}}</th>{{end}}</tr></thead><tbody>{{range .Dashboard.RecentRows}}<tr><td>{{.Timestamp}}</td><td>{{.InverterTimestamp}}</td>{{range .Values}}<td>{{.Value}}</td>{{end}}</tr>{{else}}<tr><td colspan="11" class="muted">Лог инвертора ещё не создан</td></tr>{{end}}</tbody></table></div>
+    </div>
+
+    <div class="dashboard-columns dashboard-columns-beauty">
+      <div class="dashboard-panel">
+        <h3>Уставки текущего состояния</h3>
+        <div class="mini-table-wrap"><table class="mini-table"><thead><tr><th>Код</th><th>Значение</th><th>Описание</th></tr></thead><tbody>{{range .Dashboard.Setpoints}}<tr><td><code>{{.Code}}</code></td><td><strong>{{.Value}} {{.Suffix}}</strong></td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3" class="muted">Нет данных уставок</td></tr>{{end}}</tbody></table></div>
+      </div>
+      <div class="dashboard-panel">
+        <h3>Фактические параметры из последнего лога</h3>
+        <div class="mini-table-wrap"><table class="mini-table"><thead><tr><th>Код</th><th>Значение</th><th>Описание</th></tr></thead><tbody>{{range .Dashboard.Actuals}}<tr><td><code title="{{.Name}}">{{.Code}}</code></td><td><strong>{{.Value}} {{.Suffix}}</strong></td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3" class="muted">Лог инвертора ещё не создан</td></tr>{{end}}</tbody></table></div>
+      </div>
+    </div>
+    <details class="dashboard-register-details">
+      <summary>Описание регистров/полей, используемых Dashboard</summary>
+      <div class="mini-table-wrap"><table class="mini-table"><thead><tr><th>Код/адрес</th><th>Название</th><th>Описание</th></tr></thead><tbody>{{range .Dashboard.RegisterDescriptions}}<tr><td><code>{{.Code}}</code></td><td>{{.Name}}</td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3" class="muted">Нет данных</td></tr>{{end}}</tbody></table></div>
+    </details>
+  </section>
+
+  <nav class="tabs legacy-home-nav">
+    <button class="tab-button active" type="button" onclick="openTab(event, 'general')">Общие данные</button>
+    <a href="/api/docs" class="btn btn-secondary">API</a>
+    <a href="/templates/list" class="btn btn-secondary">Шаблоны</a>
+    <a href="/templates/import" class="btn btn-secondary">Импорт XLSX</a>
+    <a href="/tasks/logs" class="btn btn-secondary">Журнал задач</a>
+    <a href="/tasks/settings" class="btn btn-secondary">Периодические задачи</a>
+    <a href="/inverter-logging" class="btn btn-secondary">Логирование инвертора</a>
+    <a href="/integration" class="btn btn-secondary">Интеграция</a>
+    <a href="/logs/monitor" class="btn btn-secondary">Мониторинг логов</a>
+    <button class="tab-button" type="button" onclick="openTab(event, 'settings')">Настройки</button>
+  </nav>
+
+  <section id="general" class="tab-content active">
+    <div class="grid-main">
+      <div class="card inverter-list-card" id="inverters">
+        <div class="section-title-row"><div><h2>Подключённые инверторы</h2><p class="muted">Выберите один или несколько инверторов для редактирования расписания.</p></div><a href="/schedules" class="btn btn-secondary">Открыть расписание</a></div>
+        <p class="muted">Список инверторов, доступных для создания и управления расписаниями.</p>
+
+        <form method="GET" action="/" class="form" style="margin-bottom: 18px;">
+          <div class="field">
+            <label for="search">Поиск по имени или IP</label>
+            <input type="text" id="search" name="search" value="{{.Search}}" placeholder="Например: Инвертор 1 или 192.168.1.101">
+          </div>
+          <div class="button-row">
+            <button type="submit" class="btn btn-primary">Поиск</button>
+            <a href="/" class="btn btn-secondary">Сбросить</a>
+          </div>
+        </form>
+
+        <div class="toolbar">
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+            <input type="checkbox" id="selectVisible">
+            <span>Выбрать все видимые</span>
+          </label>
+          <div class="bulk-actions">
+            <button type="button" class="btn btn-secondary" id="bulkTemplateApplyBtn" disabled>Быстро применить шаблон</button>
+            <button type="button" class="btn btn-primary" id="bulkEditBtn" disabled>Редактировать расписание</button>
+            <button type="button" class="btn btn-success" id="bulkEnableBtn" disabled>Включить Use Timer</button>
+            <button type="button" class="btn btn-warning" id="bulkDisableBtn" disabled>Выключить Use Timer</button>
+          </div>
+        </div>
+
+        {{if .Inverters}}
+        <div class="inverter-card-grid">
+          {{range .Inverters}}
+          <article class="inverter-card-item">
+            <div class="inverter-card-main">
+              <label class="inverter-select-line">
+                <input type="checkbox" class="row-check" value="{{.ID}}">
+                <span>Выбрать</span>
+              </label>
+              <div class="inverter-card-title-row">
+                <div>
+                  <div class="inverter-name">{{.Name}}</div>
+                  <div class="inverter-endpoint">{{.IP}}:{{.Port}}</div>
+                  <div class="inverter-model-name">{{.ModelName}}</div>
+                  <div class="inverter-profile-path"><code>{{.ModelKey}}</code></div>
+                </div>
+                {{if .HasSchedule}}
+                  {{if .ScheduleEnabled}}<div class="schedule-pill schedule-pill-on">Use Timer</div>{{else}}<div class="schedule-pill schedule-pill-off">Timer Off</div>{{end}}
+                {{else}}<div class="schedule-pill schedule-pill-none">Нет расписания</div>{{end}}
+              </div>
+              <div class="inverter-card-meta">
+                {{if .HasTemplate}}<span>Шаблон: {{.AppliedTemplate}}</span>{{else}}<span>Шаблон не применён</span>{{end}}
+                <span>Профиль: {{.ParametersFile}}</span>
+                <span>Проверка: {{.ValidationStatus}}</span>
+              </div>
+              <details class="inverter-model-settings">
+                <summary>Настройки модели и профиля регистров</summary>
+                <form class="form inverter-settings-form" method="POST" action="/inverters/settings">
+                  <input type="hidden" name="id" value="{{.ID}}">
+                  <div class="field"><label>Имя</label><input type="text" name="name" value="{{.Name}}"></div>
+                  <div class="field"><label>Тип инвертора</label><select name="model_key" required>{{$inv := .}}{{range $.InverterModels}}<option value="{{.Key}}" {{if eq .Key $inv.ModelKey}}selected{{end}}>{{.Name}} · {{.ModelCode}}{{if .WriteRequiresConfirm}} · требует проверки{{end}}</option>{{end}}</select></div>
+                  <label class="checkbox-line"><input type="checkbox" name="profile_write_confirmed" value="1" {{if .ProfileWriteConfirmed}}checked{{end}}> Я выполнил read-only сверку карты регистров и разрешаю запись выбранного профиля</label>
+                  {{if and .WriteRequiresConfirm (not .ProfileWriteConfirmed)}}<div class="alert alert-warning">Запись расписания и ручные Modbus-команды заблокированы до подтверждения профиля.</div>{{end}}
+                  <button type="submit" class="btn btn-secondary">Сохранить тип инвертора</button>
+                </form>
+              </details>
+            </div>
+            <div class="inverter-card-actions">
+              <a class="btn btn-primary" href="/schedules?ids={{.ID}}">Расписание</a>
+              <form class="delete-inverter-form" method="POST" action="/inverters/delete">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <input type="hidden" name="name" value="{{.Name}}">
+                <button type="submit" class="btn btn-danger">Удалить</button>
+              </form>
+            </div>
+          </article>
+          {{end}}
+        </div>
+        <div class="pagination">
+          {{if .HasPrev}}<a href="/?page={{.PrevPage}}&search={{.Search}}">← Назад</a>{{end}}
+          <span>Страница {{.Page}} из {{.TotalPages}}</span>
+          {{if .HasNext}}<a href="/?page={{.NextPage}}&search={{.Search}}">Далее →</a>{{end}}
+        </div>
+        {{else}}
+        <div class="empty-state">Здесь будут отображаться все добавленные инверторы.</div>
+        {{end}}
+      </div>
+
+      <div class="card add-inverter-card" id="add-inverter">
+        <h2>Добавить инвертор</h2>
+        <p class="muted">Добавление нового инвертора по имени, IP-адресу и порту подключения.</p>
+        <form class="form" id="addInverterForm" method="POST" action="/inverters">
+          <div class="field"><label for="name">Имя инвертора</label><input type="text" id="name" name="name" placeholder="По умолчанию: Инвертор N"></div>
+          <div class="field"><label for="ip">IP-адрес</label><input type="text" id="ip" name="ip" placeholder="Например: 192.168.1.101" required></div>
+          <div class="field"><label for="port">Порт</label><input type="number" id="port" name="port" value="8899" placeholder="Например: 8899" required></div>
+          <div class="field"><label for="model_key">Тип инвертора</label><select id="model_key" name="model_key" required>{{range .InverterModels}}<option value="{{.Key}}" {{if .Default}}selected{{end}}>{{.Name}} · {{.ModelCode}}{{if .WriteRequiresConfirm}} · требует проверки{{end}}</option>{{end}}</select><small>Адреса, масштабы и формат регистров будут взяты из профиля выбранной модели.</small></div>
+          <label class="checkbox-line"><input type="checkbox" name="profile_write_confirmed" value="1"> Я выполнил read-only сверку карты регистров и разрешаю запись выбранного профиля</label>
+          <small>Для экспериментальных и новых профилей без этого подтверждения чтение и логирование доступны, а запись расписания и ручная запись заблокированы.</small>
+          <div class="button-row"><button type="submit" class="btn btn-primary">Добавить инвертор</button><button type="reset" class="btn btn-secondary">Очистить</button></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="settings" class="tab-content">
+    <div class="card">
+      <h2>Настройки</h2>
+      <p class="muted">Базовые системные параметры плагина и статистика системы.</p>
+      <form class="form" id="timezoneForm" method="POST" action="/settings/timezone">
+        <div class="field">
+          <label for="timezone">Timezone</label>
+          <select id="timezone" name="timezone" required>
+            {{range .TimezoneOptions}}<option value="{{.Value}}" {{if eq $.Settings.Timezone .Value}}selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <div class="button-row"><button type="submit" class="btn btn-primary">Сохранить timezone</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Состояние БД</h2>
+      <div class="chips">
+        <div class="chip">Путь: {{.SettingsStats.DBPath}}</div>
+        <div class="chip">Размер: {{.SettingsStats.DBSizeHuman}}</div>
+        <div class="chip">Байт: {{.SettingsStats.DBSizeBytes}}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Статистика</h2>
+      <div class="chips">
+        <div class="chip">Инверторов всего: {{.SettingsStats.TotalInverters}}</div>
+        <div class="chip">Активные: {{.SettingsStats.EnabledInverters}}</div>
+        <div class="chip">Неактивные: {{.SettingsStats.DisabledInverters}}</div>
+        <div class="chip">Online: {{.SettingsStats.OnlineInverters}}</div>
+        <div class="chip">Offline: {{.SettingsStats.OfflineInverters}}</div>
+        <div class="chip">Шаблонов всего: {{.SettingsStats.TotalTemplates}}</div>
+        <div class="chip">Шаблонов в работе: {{.SettingsStats.EnabledTemplates}}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Почасовая задача</h2>
+      <div class="chips">
+        <div class="chip">Включена: {{if .SettingsStats.SchedulerEnabled}}Да{{else}}Нет{{end}}</div>
+        <div class="chip">Файловые логи: {{if .SettingsStats.FileLoggingEnabled}}Да{{else}}Нет{{end}}</div>
+        <div class="chip">Последний запуск UTC: {{if .SettingsStats.LastSchedulerRunUTC}}{{.SettingsStats.LastSchedulerRunUTC}}{{else}}ещё не запускалась{{end}}</div>
+        <div class="chip">Последний запуск локально: {{if .SettingsStats.LastSchedulerRunLocal}}{{.SettingsStats.LastSchedulerRunLocal}}{{else}}ещё не запускалась{{end}}</div>
+        <div class="chip">Проверено инверторов: {{.SettingsStats.LastSchedulerProcessed}}</div>
+        <div class="chip">Сформировано payload: {{.SettingsStats.LastSchedulerTriggered}}</div>
+      </div>
+      <div class="button-row" style="margin-top:16px;">
+        <button type="button" class="btn btn-primary" id="runSchedulerNowBtn">Запустить сейчас</button>
+        <button type="button" class="btn btn-secondary" id="toggleSchedulerBtn" data-enabled="{{if .SettingsStats.SchedulerEnabled}}1{{else}}0{{end}}">
+          {{if .SettingsStats.SchedulerEnabled}}Выключить scheduler{{else}}Включить scheduler{{end}}
+        </button>
+        <button type="button" class="btn btn-secondary" id="toggleFileLoggingBtn" data-enabled="{{if .SettingsStats.FileLoggingEnabled}}1{{else}}0{{end}}">
+          {{if .SettingsStats.FileLoggingEnabled}}Выключить file logging{{else}}Включить file logging{{end}}
+        </button>
+        <button type="button" class="btn btn-secondary" id="clearAppLogsBtn">Очистить app логи</button>
+        <button type="button" class="btn btn-secondary" id="clearTaskLogsBtn">Очистить task логи</button>
+      </div>
+      <div class="button-row" style="margin-top:16px;">
+        <a href="/tasks/logs" class="btn btn-secondary">Открыть журнал задач</a>
+        <a href="/logs/monitor" class="btn btn-secondary">Мониторинг app логов</a>
+        <a href="/templates/import" class="btn btn-secondary">Импортировать шаблоны из XLSX</a>
+        <a href="{{.SettingsStats.TemplateExampleURL}}" class="btn btn-secondary">Пример XLSX</a>
+      </div>
+      <div class="card" style="margin-top:16px; padding:16px;">
+        <h3 style="margin-top:0;">Проверка scheduler</h3>
+        <p class="muted">Тестовая команда запуска вручную:</p>
+        <pre style="white-space:pre-wrap;">{{.SettingsStats.SchedulerTestCommand}}</pre>
+        <p class="muted">API логов: {{.SettingsStats.LogsAPIEndpoint}} | raw: {{.SettingsStats.RawLogsEndpoint}} | task logs: {{.SettingsStats.TaskLogsEndpoint}}</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Логи</h2>
+      <div class="chips">
+        <div class="chip">Файл логов: {{.SettingsStats.AppLogPath}}</div>
+        <div class="chip">Размер файла: {{.SettingsStats.AppLogSizeHuman}}</div>
+        <div class="chip">Байт: {{.SettingsStats.AppLogSizeBytes}}</div>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="/static/js/common.js?v=20260525a"></script>
+<script src="/static/js/main.js?v=20260525a"></script>
+</body>
+</html>

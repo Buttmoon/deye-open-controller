@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="button-row">
+      <a href="/templates/list" class="btn btn-secondary">← К списку шаблонов</a>
+    </div>
+    <h1>Импорт шаблонов из XLSX</h1>
+    <p class="muted">Каждый лист XLSX = отдельный шаблон. После загрузки шаблон получает имя по дате загрузки и имени листа, изменить его можно через редактирование шаблона.</p>
+    <p class="muted">{{.ExampleSheet}}</p>
+    <div class="button-row" style="margin-bottom:16px;">
+      <a class="btn btn-secondary" href="/templates/import/example.xlsx">Скачать пример XLSX</a>
+    </div>
+    <form class="form" method="POST" action="/templates/import/upload" enctype="multipart/form-data">
+      <div class="field">
+        <label for="xlsx_file">XLSX файл</label>
+        <input type="file" id="xlsx_file" name="xlsx_file" accept=".xlsx" required>
+      </div>
+      <div class="button-row">
+        <button class="btn btn-primary" type="submit">Загрузить шаблоны</button>
+      </div>
+    </form>
+  </div>
+
+  {{if .Imported}}
+  <div class="card">
+    <h2>Результат импорта</h2>
+    {{range .Imported}}
+      <div class="chip" style="display:block; margin-bottom:10px;">
+        <strong>{{.Name}}</strong><br>
+        <span class="muted">{{.Description}}</span><br>
+        {{if .Created}}<span style="color:#86efac;">Создано</span>{{else}}<span style="color:#fca5a5;">Ошибка: {{.Error}}</span>{{end}}
+      </div>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+<script src="/static/js/common.js?v=20260619ui2"></script>
+</body>
+</html>

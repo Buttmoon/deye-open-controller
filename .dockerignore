@@ -1,0 +1,6 @@
+.git
+.gitignore
+data
+*.log
+tmp
+dist

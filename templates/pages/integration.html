@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=20260614b">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="button-row" style="margin-bottom:16px;"><a href="/" class="btn btn-secondary">← Назад на главную</a></div>
+  <div class="card page-header"><h1>Интеграция</h1><p class="muted">Настройка отправки логов инвертора на внешний сервер. Последний лог отправляется как JSON каждые N секунд от начала часа.</p></div>
+
+  <div class="card">
+    <h2>Параметры сервера</h2>
+    <div class="field">
+      <label for="serverName">Наименование сервера</label>
+      <input id="serverName" value="{{.Settings.IntegrationServerName}}" placeholder="Например: Inverter Home">
+    </div>
+    <div class="field">
+      <label for="serverIP">IP адрес сервера</label>
+      <input id="serverIP" value="{{.Settings.IntegrationServerIP}}" placeholder="Например: 192.168.1.100">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>URL интеграции</h2>
+    <div class="field">
+      <label for="integrationURL">URL внешнего сервера</label>
+      <input id="integrationURL" value="{{.Settings.IntegrationURL}}" placeholder="https://example.com/api/inverter-logs или http://192.168.1.50:9000/push">
+      <div class="muted" style="margin-top:4px;">Поддерживается HTTPS (домен) и HTTP (с портом)</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Авторизация</h2>
+    <div class="field">
+      <label>
+        <input type="checkbox" id="authEnabled" {{if .Settings.IntegrationAuthEnabled}}checked{{end}}> Включить схему авторизации
+      </label>
+    </div>
+    <div id="authFields" style="{{if not .Settings.IntegrationAuthEnabled}}display:none;{{end}}">
+      <div class="field">
+        <label for="authScheme">Схема авторизации</label>
+        <select id="authScheme">
+          <option value="" {{if eq .Settings.IntegrationAuthScheme ""}}selected{{end}}>-- выбрать --</option>
+          <option value="bearer" {{if eq .Settings.IntegrationAuthScheme "bearer"}}selected{{end}}>Bearer Token</option>
+          <option value="basic" {{if eq .Settings.IntegrationAuthScheme "basic"}}selected{{end}}>Basic Auth (логин:пароль)</option>
+        </select>
+      </div>
+      <div id="bearerFields" class="field" style="{{if ne .Settings.IntegrationAuthScheme "bearer"}}display:none;{{end}}">
+        <label for="authToken">Bearer Token</label>
+        <input id="authToken" type="password" value="{{.Settings.IntegrationAuthToken}}" placeholder="Вставьте токен">
+      </div>
+      <div id="basicFields" style="{{if ne .Settings.IntegrationAuthScheme "basic"}}display:none;{{end}}">
+        <div class="field">
+          <label for="authUsername">Логин</label>
+          <input id="authUsername" value="{{.Settings.IntegrationAuthUsername}}" placeholder="Логин">
+        </div>
+        <div class="field">
+          <label for="authPassword">Пароль</label>
+          <input id="authPassword" type="password" value="{{.Settings.IntegrationAuthPassword}}" placeholder="Пароль">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Периодическая отправка</h2>
+    <div class="field">
+      <label for="pushInterval">Интервал отправки (секунды от начала часа)</label>
+      <input id="pushInterval" type="number" value="{{.Settings.IntegrationPushIntervalSeconds}}" min="10" max="3600">
+      <div class="muted" style="margin-top:4px;">Последний лог инвертора отправляется на URL каждые N секунд</div>
+    </div>
+    <div class="button-row" style="margin-top:12px;">
+      <button class="btn btn-primary" type="button" id="saveIntegrationBtn">Сохранить настройки</button>
+      <button class="btn btn-secondary" type="button" id="previewPayloadBtn">Показать payload</button>
+      <button class="btn btn-secondary" type="button" id="testIntegrationBtn">Отправить тест</button>
+    </div>
+  </div>
+</div>
+
+<div id="payloadModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:800px;">
+    <div class="button-row" style="justify-content:space-between;align-items:center;">
+      <h3>Payload для отправки</h3>
+      <button class="btn btn-secondary" id="closePayloadModal" type="button">Закрыть</button>
+    </div>
+    <div id="payloadUrl" class="muted" style="margin:8px 0;"></div>
+    <pre id="payloadJson" style="background:#1a1a2e;color:#e0e0e0;padding:16px;border-radius:8px;overflow-x:auto;max-height:60vh;font-size:13px;white-space:pre-wrap;"></pre>
+    <div class="button-row" style="margin-top:12px;">
+      <button class="btn btn-primary" type="button" id="copyPayloadBtn">Копировать JSON</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/common.js?v=20260614b"></script>
+<script>
+(function(){
+  const authEnabled = document.getElementById('authEnabled');
+  const authFields = document.getElementById('authFields');
+  const authScheme = document.getElementById('authScheme');
+  const bearerFields = document.getElementById('bearerFields');
+  const basicFields = document.getElementById('basicFields');
+
+  authEnabled?.addEventListener('change', function(){
+    authFields.style.display = this.checked ? '' : 'none';
+  });
+
+  authScheme?.addEventListener('change', function(){
+    bearerFields.style.display = this.value === 'bearer' ? '' : 'none';
+    basicFields.style.display = this.value === 'basic' ? '' : 'none';
+  });
+
+  document.getElementById('saveIntegrationBtn')?.addEventListener('click', async function(){
+    const params = new URLSearchParams();
+    params.append('integration_url', document.getElementById('integrationURL').value);
+    params.append('integration_auth_enabled', authEnabled.checked ? '1' : '0');
+    params.append('integration_auth_scheme', authScheme.value);
+    params.append('integration_auth_token', document.getElementById('authToken')?.value || '');
+    params.append('integration_auth_username', document.getElementById('authUsername')?.value || '');
+    params.append('integration_auth_password', document.getElementById('authPassword')?.value || '');
+    params.append('integration_push_interval_seconds', document.getElementById('pushInterval').value);
+    params.append('integration_server_name', document.getElementById('serverName').value);
+    params.append('integration_server_ip', document.getElementById('serverIP').value);
+    try {
+      const {response, data} = await postForm('/integration/save', params);
+      if (!response.ok || !data.ok) { showPopup(data.message || 'Ошибка сохранения', 'error'); return; }
+      showPopup(data.message || 'Настройки сохранены');
+    } catch {
+      showPopup('Ошибка соединения с сервером', 'error');
+    }
+  });
+
+  document.getElementById('testIntegrationBtn')?.addEventListener('click', async function(){
+    try {
+      const {response, data} = await postForm('/integration/test', new URLSearchParams());
+      if (!response.ok || !data.ok) { showPopup(data.message || 'Ошибка', 'error'); return; }
+      showPopup(data.message || 'Тестовая отправка запущена');
+    } catch {
+      showPopup('Ошибка соединения с сервером', 'error');
+    }
+  });
+
+  document.getElementById('previewPayloadBtn')?.addEventListener('click', async function(){
+    try {
+      const response = await fetch('/integration/preview');
+      const data = await response.json();
+      if (!response.ok || !data.ok) { showPopup(data.message || 'Ошибка', 'error'); return; }
+      document.getElementById('payloadUrl').textContent = 'URL: ' + document.getElementById('integrationURL').value || '(не задан)';
+      document.getElementById('payloadJson').textContent = JSON.stringify(data.payload, null, 2);
+      document.getElementById('payloadModal').style.display = '';
+    } catch {
+      showPopup('Ошибка соединения с сервером', 'error');
+    }
+  });
+
+  document.getElementById('closePayloadModal')?.addEventListener('click', function(){
+    document.getElementById('payloadModal').style.display = 'none';
+  });
+
+  document.getElementById('copyPayloadBtn')?.addEventListener('click', function(){
+    const text = document.getElementById('payloadJson').textContent;
+    navigator.clipboard.writeText(text).then(function(){
+      showPayloadPopup('Скопировано');
+    });
+  });
+
+  function showPayloadPopup(msg){
+    showPopup(msg);
+  }
+})();
+</script>
+</body>
+</html>

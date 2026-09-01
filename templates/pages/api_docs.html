@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=20260619md">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="card page-header api-md-header">
+    <h1>API документация</h1>
+    <p class="muted">Страница автоматически отрисовывается из файла <code>API_DOCUMENTATION.md</code>.</p>
+    <div class="button-row">
+      <a href="/" class="btn btn-secondary">Главная</a>
+      <a href="/settings" class="btn btn-secondary">Настройки</a>
+      <a href="/schedules" class="btn btn-secondary">Расписание инвертора</a>
+    </div>
+  </div>
+  <article class="card markdown-doc api-markdown-doc">
+    {{.MarkdownHTML}}
+  </article>
+</div>
+<script src="/static/js/common.js?v=20260619md"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+.template-card {
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+  background: rgba(255,255,255,.03);
+}
+.template-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap; margin-bottom:12px; }
+.template-title { font-size:20px; font-weight:700; margin-bottom:6px; }
+.template-meta { color: var(--muted); font-size:14px; }
+.template-section { margin-top:14px; }
+.template-section-title { font-size:14px; font-weight:700; margin-bottom:8px; color:#cbd5e1; }

@@ -1,0 +1,4 @@
+sudo nano /etc/systemd/system/inverter-schedule.service
+sudo systemctl daemon-reload
+sudo systemctl enable inverter-schedule
+sudo systemctl start inverter-schedule

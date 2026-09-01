@@ -1,0 +1,411 @@
+{
+  "schema_version": 1,
+  "profile_count": 5,
+  "ok": true,
+  "results": [
+    {
+      "model_key": "deye_hybrid_60kw_legacy",
+      "model_name": "Deye Hybrid 60 kW — legacy profile (historical cap 32 kW)",
+      "profile": "device_parameters/device_parameters_deye_60kw.json",
+      "protocol": "existing project map + TOU 148–177",
+      "profile_variant": "legacy project profile, power read scale 1; write schedule scale 10",
+      "experimental": false,
+      "parameter_count": 199,
+      "schedule_power_max_w": 32000,
+      "grid_export_max_w": 32000,
+      "program_power_read_scale_w": 1,
+      "program_power_write_scale_w": 10,
+      "program_voltage_scale_v": 0.01,
+      "program_voltage_max_v": 60,
+      "allowed_charge_modes": [
+        0,
+        1,
+        2,
+        3,
+        32,
+        33,
+        34,
+        35
+      ],
+      "required_tou_addresses": {
+        "priority_load": 141,
+        "inverter_work_mode": 142,
+        "grid_export_limit": 143,
+        "solar_sell": 145,
+        "use_timer": 146,
+        "sell_time_point_1": 148,
+        "sell_mode_kw_point_1": 154,
+        "sell_mode_batt_capacity_1": 166,
+        "charge_mode_point_1": 172,
+        "sell_time_point_2": 149,
+        "sell_mode_kw_point_2": 155,
+        "sell_mode_batt_capacity_2": 167,
+        "charge_mode_point_2": 173,
+        "sell_time_point_3": 150,
+        "sell_mode_kw_point_3": 156,
+        "sell_mode_batt_capacity_3": 168,
+        "charge_mode_point_3": 174,
+        "sell_time_point_4": 151,
+        "sell_mode_kw_point_4": 157,
+        "sell_mode_batt_capacity_4": 169,
+        "charge_mode_point_4": 175,
+        "sell_time_point_5": 152,
+        "sell_mode_kw_point_5": 158,
+        "sell_mode_batt_capacity_5": 170,
+        "charge_mode_point_5": 176,
+        "sell_time_point_6": 153,
+        "sell_mode_kw_point_6": 159,
+        "sell_mode_batt_capacity_6": 171,
+        "charge_mode_point_6": 177
+      },
+      "active_aliases": {
+        "146": [
+          "use_timer",
+          "prog_monday_enabled",
+          "prog_tuesday_enabled",
+          "prog_wednesday_enabled",
+          "prog_thursday_enabled",
+          "prog_friday_enabled",
+          "prog_saturday_enabled",
+          "prog_sunday_enabled"
+        ],
+        "140": [
+          "grid_signal_on",
+          "gen_signal_on"
+        ],
+        "336": [
+          "parallel_enable",
+          "parallel_mode"
+        ]
+      },
+      "errors": [],
+      "warnings": [
+        "active address aliases exist; writable collisions are forbidden and checked separately"
+      ],
+      "status": "ok"
+    },
+    {
+      "model_key": "deye_hybrid_60kw_v1054_hv_x10_experimental",
+      "model_name": "Deye Hybrid 60 kW — V105.4 HV x10 (экспериментальный)",
+      "profile": "device_parameters/device_parameters_deye_60kw_v1054_hv_x10.json",
+      "protocol": "Deye MODBUS RTU V105.4 high-voltage x10",
+      "profile_variant": "generic V105.4 HV, schedule power 10 W/raw",
+      "experimental": true,
+      "parameter_count": 200,
+      "schedule_power_max_w": 60000,
+      "grid_export_max_w": 60000,
+      "program_power_read_scale_w": 10,
+      "program_power_write_scale_w": 10,
+      "program_voltage_scale_v": 0.1,
+      "program_voltage_max_v": 630,
+      "allowed_charge_modes": [
+        0,
+        1,
+        2,
+        3,
+        32,
+        33,
+        34,
+        35
+      ],
+      "required_tou_addresses": {
+        "priority_load": 141,
+        "inverter_work_mode": 142,
+        "grid_export_limit": 143,
+        "solar_sell": 145,
+        "use_timer": 146,
+        "sell_time_point_1": 148,
+        "sell_mode_kw_point_1": 154,
+        "sell_mode_batt_capacity_1": 166,
+        "charge_mode_point_1": 172,
+        "sell_time_point_2": 149,
+        "sell_mode_kw_point_2": 155,
+        "sell_mode_batt_capacity_2": 167,
+        "charge_mode_point_2": 173,
+        "sell_time_point_3": 150,
+        "sell_mode_kw_point_3": 156,
+        "sell_mode_batt_capacity_3": 168,
+        "charge_mode_point_3": 174,
+        "sell_time_point_4": 151,
+        "sell_mode_kw_point_4": 157,
+        "sell_mode_batt_capacity_4": 169,
+        "charge_mode_point_4": 175,
+        "sell_time_point_5": 152,
+        "sell_mode_kw_point_5": 158,
+        "sell_mode_batt_capacity_5": 170,
+        "charge_mode_point_5": 176,
+        "sell_time_point_6": 153,
+        "sell_mode_kw_point_6": 159,
+        "sell_mode_batt_capacity_6": 171,
+        "charge_mode_point_6": 177
+      },
+      "active_aliases": {
+        "146": [
+          "use_timer",
+          "prog_monday_enabled",
+          "prog_tuesday_enabled",
+          "prog_wednesday_enabled",
+          "prog_thursday_enabled",
+          "prog_friday_enabled",
+          "prog_saturday_enabled",
+          "prog_sunday_enabled"
+        ],
+        "140": [
+          "grid_signal_on",
+          "gen_signal_on"
+        ],
+        "336": [
+          "parallel_enable",
+          "parallel_mode"
+        ]
+      },
+      "errors": [],
+      "warnings": [
+        "active address aliases exist; writable collisions are forbidden and checked separately",
+        "HV TOU voltage 0.1 V/raw is based on the SG01-HP3-AM2 H/L distinction and must be confirmed read-only on this firmware"
+      ],
+      "status": "ok"
+    },
+    {
+      "model_key": "deye_sun_25k_sg01hp3_eu_am2_v104",
+      "model_name": "SUN-25K-SG01HP3-EU-AM2 — V104.3.1 SG01-HP3-AM2",
+      "profile": "device_parameters/device_parameters_deye_sun_25k_sg01hp3_eu_am2.json",
+      "protocol": "Deye SG01-HP3-AM2 MODBUS RTU V104.3.1",
+      "profile_variant": "model-family-specific V104.3.1; register 144 external CT clamp phase",
+      "experimental": false,
+      "parameter_count": 200,
+      "schedule_power_max_w": 25000,
+      "grid_export_max_w": 25000,
+      "program_power_read_scale_w": 10,
+      "program_power_write_scale_w": 10,
+      "program_voltage_scale_v": 0.1,
+      "program_voltage_max_v": 630,
+      "allowed_charge_modes": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "required_tou_addresses": {
+        "priority_load": 141,
+        "inverter_work_mode": 142,
+        "grid_export_limit": 143,
+        "solar_sell": 145,
+        "use_timer": 146,
+        "sell_time_point_1": 148,
+        "sell_mode_kw_point_1": 154,
+        "sell_mode_batt_capacity_1": 166,
+        "charge_mode_point_1": 172,
+        "sell_time_point_2": 149,
+        "sell_mode_kw_point_2": 155,
+        "sell_mode_batt_capacity_2": 167,
+        "charge_mode_point_2": 173,
+        "sell_time_point_3": 150,
+        "sell_mode_kw_point_3": 156,
+        "sell_mode_batt_capacity_3": 168,
+        "charge_mode_point_3": 174,
+        "sell_time_point_4": 151,
+        "sell_mode_kw_point_4": 157,
+        "sell_mode_batt_capacity_4": 169,
+        "charge_mode_point_4": 175,
+        "sell_time_point_5": 152,
+        "sell_mode_kw_point_5": 158,
+        "sell_mode_batt_capacity_5": 170,
+        "charge_mode_point_5": 176,
+        "sell_time_point_6": 153,
+        "sell_mode_kw_point_6": 159,
+        "sell_mode_batt_capacity_6": 171,
+        "charge_mode_point_6": 177
+      },
+      "active_aliases": {
+        "146": [
+          "use_timer",
+          "prog_monday_enabled",
+          "prog_tuesday_enabled",
+          "prog_wednesday_enabled",
+          "prog_thursday_enabled",
+          "prog_friday_enabled",
+          "prog_saturday_enabled",
+          "prog_sunday_enabled"
+        ],
+        "140": [
+          "grid_signal_on",
+          "gen_signal_on"
+        ],
+        "336": [
+          "parallel_enable",
+          "parallel_mode"
+        ]
+      },
+      "errors": [],
+      "warnings": [
+        "active address aliases exist; writable collisions are forbidden and checked separately"
+      ],
+      "status": "ok"
+    },
+    {
+      "model_key": "deye_sun_25k_sg01hp3_eu_am2_v1054",
+      "model_name": "SUN-25K-SG01HP3-EU-AM2 — V105.4 (вариант прошивки)",
+      "profile": "device_parameters/device_parameters_deye_sun_25k_sg01hp3_eu_am2_v1054.json",
+      "protocol": "Deye MODBUS RTU V105.4 generic three-phase",
+      "profile_variant": "generic V105.4; register 144 default max sell-to-grid power",
+      "experimental": true,
+      "parameter_count": 200,
+      "schedule_power_max_w": 25000,
+      "grid_export_max_w": 25000,
+      "program_power_read_scale_w": 10,
+      "program_power_write_scale_w": 10,
+      "program_voltage_scale_v": 0.1,
+      "program_voltage_max_v": 630,
+      "allowed_charge_modes": [
+        0,
+        1,
+        2,
+        3,
+        32,
+        33,
+        34,
+        35
+      ],
+      "required_tou_addresses": {
+        "priority_load": 141,
+        "inverter_work_mode": 142,
+        "grid_export_limit": 143,
+        "solar_sell": 145,
+        "use_timer": 146,
+        "sell_time_point_1": 148,
+        "sell_mode_kw_point_1": 154,
+        "sell_mode_batt_capacity_1": 166,
+        "charge_mode_point_1": 172,
+        "sell_time_point_2": 149,
+        "sell_mode_kw_point_2": 155,
+        "sell_mode_batt_capacity_2": 167,
+        "charge_mode_point_2": 173,
+        "sell_time_point_3": 150,
+        "sell_mode_kw_point_3": 156,
+        "sell_mode_batt_capacity_3": 168,
+        "charge_mode_point_3": 174,
+        "sell_time_point_4": 151,
+        "sell_mode_kw_point_4": 157,
+        "sell_mode_batt_capacity_4": 169,
+        "charge_mode_point_4": 175,
+        "sell_time_point_5": 152,
+        "sell_mode_kw_point_5": 158,
+        "sell_mode_batt_capacity_5": 170,
+        "charge_mode_point_5": 176,
+        "sell_time_point_6": 153,
+        "sell_mode_kw_point_6": 159,
+        "sell_mode_batt_capacity_6": 171,
+        "charge_mode_point_6": 177
+      },
+      "active_aliases": {
+        "146": [
+          "use_timer",
+          "prog_monday_enabled",
+          "prog_tuesday_enabled",
+          "prog_wednesday_enabled",
+          "prog_thursday_enabled",
+          "prog_friday_enabled",
+          "prog_saturday_enabled",
+          "prog_sunday_enabled"
+        ],
+        "140": [
+          "grid_signal_on",
+          "gen_signal_on"
+        ],
+        "336": [
+          "parallel_enable",
+          "parallel_mode"
+        ]
+      },
+      "errors": [],
+      "warnings": [
+        "active address aliases exist; writable collisions are forbidden and checked separately",
+        "HV TOU voltage 0.1 V/raw is based on the SG01-HP3-AM2 H/L distinction and must be confirmed read-only on this firmware"
+      ],
+      "status": "ok"
+    },
+    {
+      "model_key": "deye_sun_30k_sg02hp3_eu_am3_v1054",
+      "model_name": "SUN-30K-SG02HP3-EU-AM3 — V105.4 (требует проверки устройства)",
+      "profile": "device_parameters/device_parameters_deye_sun_30k_sg02hp3_eu_am3.json",
+      "protocol": "Deye MODBUS RTU V105.4 generic three-phase",
+      "profile_variant": "SG02HP3-EU-AM3 mapped to generic V105.4, HV 10 W/raw",
+      "experimental": true,
+      "parameter_count": 200,
+      "schedule_power_max_w": 30000,
+      "grid_export_max_w": 30000,
+      "program_power_read_scale_w": 10,
+      "program_power_write_scale_w": 10,
+      "program_voltage_scale_v": 0.1,
+      "program_voltage_max_v": 630,
+      "allowed_charge_modes": [
+        0,
+        1,
+        2,
+        3,
+        32,
+        33,
+        34,
+        35
+      ],
+      "required_tou_addresses": {
+        "priority_load": 141,
+        "inverter_work_mode": 142,
+        "grid_export_limit": 143,
+        "solar_sell": 145,
+        "use_timer": 146,
+        "sell_time_point_1": 148,
+        "sell_mode_kw_point_1": 154,
+        "sell_mode_batt_capacity_1": 166,
+        "charge_mode_point_1": 172,
+        "sell_time_point_2": 149,
+        "sell_mode_kw_point_2": 155,
+        "sell_mode_batt_capacity_2": 167,
+        "charge_mode_point_2": 173,
+        "sell_time_point_3": 150,
+        "sell_mode_kw_point_3": 156,
+        "sell_mode_batt_capacity_3": 168,
+        "charge_mode_point_3": 174,
+        "sell_time_point_4": 151,
+        "sell_mode_kw_point_4": 157,
+        "sell_mode_batt_capacity_4": 169,
+        "charge_mode_point_4": 175,
+        "sell_time_point_5": 152,
+        "sell_mode_kw_point_5": 158,
+        "sell_mode_batt_capacity_5": 170,
+        "charge_mode_point_5": 176,
+        "sell_time_point_6": 153,
+        "sell_mode_kw_point_6": 159,
+        "sell_mode_batt_capacity_6": 171,
+        "charge_mode_point_6": 177
+      },
+      "active_aliases": {
+        "146": [
+          "use_timer",
+          "prog_monday_enabled",
+          "prog_tuesday_enabled",
+          "prog_wednesday_enabled",
+          "prog_thursday_enabled",
+          "prog_friday_enabled",
+          "prog_saturday_enabled",
+          "prog_sunday_enabled"
+        ],
+        "140": [
+          "grid_signal_on",
+          "gen_signal_on"
+        ],
+        "336": [
+          "parallel_enable",
+          "parallel_mode"
+        ]
+      },
+      "errors": [],
+      "warnings": [
+        "active address aliases exist; writable collisions are forbidden and checked separately",
+        "HV TOU voltage 0.1 V/raw is based on the SG01-HP3-AM2 H/L distinction and must be confirmed read-only on this firmware"
+      ],
+      "status": "ok"
+    }
+  ]
+}

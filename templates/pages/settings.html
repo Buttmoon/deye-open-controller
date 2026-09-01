@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="card page-header settings-card-accent">
+    <h1>Настройки</h1>
+    <p class="muted">Управление timezone, scheduler, Modbus, временем инвертора, логами и очисткой данных.</p>
+    <div class="home-quick-grid" style="margin-top:18px;margin-bottom:0;">
+      <a class="home-quick-card" href="#runtime-block"><span>▣</span><strong>Приложение</strong><small>Название на главной странице</small></a>
+      <a class="home-quick-card" href="#timezone-block"><span>🌐</span><strong>Timezone</strong><small>Часовой пояс системы</small></a>
+      <a class="home-quick-card" href="#runtime-block"><span>⏱</span><strong>Scheduler</strong><small>Периодические задачи и логи</small></a>
+      <a class="home-quick-card" href="#modbus-block"><span>⚡</span><strong>Modbus</strong><small>Ручная запись регистра</small></a>
+      <a class="home-quick-card" href="#system-block"><span>▣</span><strong>Система</strong><small>Статистика и очистка</small></a>
+    </div>
+  </div>
+
+  <div class="card settings-card-accent" id="inverter-models-block">
+    <h2>Каталог моделей и профилей регистров</h2>
+    <p class="muted">Каждая модель использует отдельный JSON-профиль. Адреса, типы регистров, коэффициенты чтения/записи и порядок слов загружаются во время выполнения. Выбор модели конкретного инвертора выполняется на главной странице в его настройках.</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Модель</th><th>Ключ</th><th>Файл профиля</th><th>Мощность</th><th>Статус</th></tr></thead>
+        <tbody>
+        {{range .InverterModels}}
+          <tr>
+            <td><strong>{{.Name}}</strong><div class="muted">{{.ModelCode}}</div></td>
+            <td><code>{{.Key}}</code>{{if .Default}}<div class="chip" style="margin-top:6px;display:inline-flex;">по умолчанию</div>{{end}}</td>
+            <td><code>{{.ParametersFile}}</code></td>
+            <td>{{.RatedPowerW}} W</td>
+            <td><strong>{{.ValidationStatus}}</strong>{{if .Notes}}<div class="muted">{{.Notes}}</div>{{end}}</td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <div class="muted" style="margin-top:12px;">API каталога: <code>GET /api/inverter-models</code>. Для добавления следующей модели достаточно нового JSON-профиля и записи в <code>inverter_models.json</code>.</div>
+  </div>
+
+  <div class="card settings-card-accent" id="timezone-block">
+    <h2>Timezone</h2>
+    <form class="form" id="timezoneForm" method="POST" action="/settings/timezone">
+      <div class="field"><label for="timezone">Timezone</label><select id="timezone" name="timezone" required>{{range .TimezoneOptions}}<option value="{{.Value}}" {{if eq $.Settings.Timezone .Value}}selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+      <div class="button-row"><button type="submit" class="btn btn-primary">Сохранить timezone</button></div>
+    </form>
+  </div>
+
+  <div class="card settings-card-accent" id="runtime-block">
+    <h2>Имя приложения, Scheduler и логи</h2>
+    <form id="runtimeSettingsForm">
+      <div class="field">
+        <label for="applicationName">Имя приложения</label>
+        <input id="applicationName" type="text" value="{{.Settings.ApplicationName}}" maxlength="120" placeholder="Например: Солнечная станция">
+        <div class="muted" style="margin-top:8px;">Если оставить пустым, на главной странице будет использоваться имя первого инвертора.</div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="schedulerEnabled" {{if .Settings.SchedulerEnabled}}checked{{end}}> Включить периодические задачи</label></div>
+      <div class="field"><label><input type="checkbox" id="fileLoggingEnabled" {{if .Settings.FileLoggingEnabled}}checked{{end}}> Писать app логи в файл</label></div>
+      <div class="field"><label><input type="checkbox" id="schedulerFillAllPointsCurrent" {{if .Settings.SchedulerFillAllPointsCurrent}}checked{{end}}> Заполнять все 6 точек значениями текущего времени</label><div class="muted" style="margin-top:8px;">Аварийный режим: времена точек выбираются из ближайших точек расписания текущих суток, но параметры KW/АКБ/Charge Mode берутся из текущего слота расписания. Используй, если инвертор продолжает путать точки.</div></div>
+      <div class="field"><label for="schedulerIntervalMinutes">Legacy-интервал, минут (scheduler теперь отправляет каждый час в :00)</label><input id="schedulerIntervalMinutes" type="number" value="{{.Settings.SchedulerIntervalMinutes}}" min="1" max="1440"></div>
+      <div class="field"><label for="logLevel">Уровень логирования</label><select id="logLevel"><option value="DEBUG" {{if eq .Settings.LogLevel "DEBUG"}}selected{{end}}>DEBUG</option><option value="INFO" {{if eq .Settings.LogLevel "INFO"}}selected{{end}}>INFO</option><option value="WARN" {{if eq .Settings.LogLevel "WARN"}}selected{{end}}>WARN</option><option value="ERROR" {{if eq .Settings.LogLevel "ERROR"}}selected{{end}}>ERROR</option></select></div>
+      <div class="field"><label for="appLogMaxSizeMB">Максимальный размер app лога, MB</label><input id="appLogMaxSizeMB" type="number" value="{{.Settings.AppLogMaxSizeMB}}" min="1" max="500"></div>
+      <div class="field"><label for="taskLogMaxRows">Максимум записей task логов</label><input id="taskLogMaxRows" type="number" value="{{.Settings.TaskLogMaxRows}}" min="10" max="100000"></div>
+      <div class="button-row"><button type="submit" class="btn btn-primary">Сохранить настройки</button><button type="button" class="btn btn-secondary" id="runNowBtn">Тестовый запуск scheduler</button></div><div class="muted" style="margin-top:10px;">Интервал указывается в минутах. После сохранения scheduler перезапускается и начинает работать с новым интервалом.</div>
+    </form>
+    <div class="field" style="margin-top:16px;"><label>Тестовая команда</label><input value="{{.TestCommand}}" readonly></div>
+  </div>
+
+  <div class="card settings-card-accent" id="modbus-block">
+    <h2>Ручная запись Modbus-регистра</h2>
+    <p class="muted">Безопаснее указывать code: адрес, масштаб, модельные пределы и bitmask берутся из JSON-профиля. Известный read-only адрес и raw-запись в bitfield блокируются. Запись выполняется через FC16 с паузой 2 секунды и обязательным read-back. Если IP/Port оставить пустыми, будет использован первый активный инвертор из расписаний.</p>
+    <form id="customModbusWriteForm">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+        <div class="field"><label for="customModbusIP">IP</label><input id="customModbusIP" placeholder="185.130.113.69"></div>
+        <div class="field"><label for="customModbusPort">Port</label><input id="customModbusPort" type="number" min="1" max="65535" placeholder="8899"></div>
+        <div class="field"><label for="customModbusModel">Профиль модели</label><select id="customModbusModel">{{range .InverterModels}}<option value="{{.Key}}" {{if .Default}}selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+        <div class="field"><label for="customModbusCode">Code из профиля модели</label><input id="customModbusCode" placeholder="sell_time_point_4"></div>
+        <div class="field"><label for="customModbusAddress">Адрес регистра</label><input id="customModbusAddress" type="number" min="0" max="65535" placeholder="151"></div>
+        <div class="field"><label for="customModbusValue">Значение (логическое при code / raw при address)</label><input id="customModbusValue" type="number" min="0" max="65535" value="1500" required></div>
+        <div class="field"><label for="customModbusRetries">Попыток</label><input id="customModbusRetries" type="number" min="1" max="20" value="5"></div>
+        <div class="field"><label for="customModbusTimeoutMS">Timeout, ms</label><input id="customModbusTimeoutMS" type="number" min="500" max="60000" value="5000"></div>
+        <div class="field"><label for="customModbusRetryDelay">Пауза между попытками, сек</label><input id="customModbusRetryDelay" type="number" min="0" max="60" value="2"></div>
+      </div>
+      <div class="button-row"><button type="submit" class="btn btn-warning">Отправить значение</button></div>
+      <div class="muted" style="margin-top:10px;">Если указан code и address пуст, применяется профильная проверка и безопасный read-modify-write для битовых регистров. Если указан address, значение считается raw; для известных профильных адресов всё равно проверяются read-only, диапазоны и запрет обхода bitmask.</div>
+    </form>
+    <div class="field" style="margin-top:16px;"><label>Тестовая команда</label><input value="curl -X POST http://localhost:8080/api/modbus/write -d model_key=deye_sun_25k_sg01hp3_eu_am2_v104 -d code=sell_time_point_4 -d value=1500 -d retries=5 -d timeout_ms=5000" readonly></div>
+    <pre id="customModbusWriteResult" style="white-space:pre-wrap; overflow:auto; max-height:420px; background:#0f172a; border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:14px; color:#e5e7eb;">Ответ появится здесь после отправки.</pre>
+  </div>
+
+
+  <div class="card">
+    <h2>Настройка времени инвертора</h2>
+    <p class="muted">Адреса трёх слов времени определяются по code из профиля выбранной модели. Запись выполняется через WriteRegisters/FC16 по одному регистру за раз. Если IP/Port пустые — используется первый зарегистрированный инвертор и его профиль.</p>
+    <form id="inverterTimeForm">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+        <div class="field"><label for="inverterTimeModel">Профиль модели</label><select id="inverterTimeModel">{{range .InverterModels}}<option value="{{.Key}}" {{if .Default}}selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+        <div class="field"><label for="inverterTimeIP">IP</label><input id="inverterTimeIP" placeholder="185.130.113.69"></div>
+        <div class="field"><label for="inverterTimePort">Port</label><input id="inverterTimePort" type="number" min="1" max="65535" placeholder="8899"></div>
+        <div class="field"><label for="inverterDateTime">Дата и время</label><input id="inverterDateTime" type="datetime-local"></div>
+        <div class="field"><label for="inverterSecond">Секунда</label><input id="inverterSecond" type="number" min="0" max="59" value="0"></div>
+        <div class="field"><label for="inverterTimeRetries">Попыток</label><input id="inverterTimeRetries" type="number" min="1" max="20" value="3"></div>
+        <div class="field"><label for="inverterTimeTimeoutMS">Timeout, ms</label><input id="inverterTimeTimeoutMS" type="number" min="500" max="60000" value="5000"></div>
+        <div class="field"><label for="inverterTimeRetryDelay">Пауза, сек</label><input id="inverterTimeRetryDelay" type="number" min="0" max="60" value="2"></div>
+      </div>
+      <div class="button-row"><button type="submit" class="btn btn-warning">Записать указанное время</button><button type="button" id="setInverterTimeNowBtn" class="btn btn-secondary">Записать текущее время по timezone</button></div>
+    </form>
+    <pre id="inverterTimeResult" style="white-space:pre-wrap; overflow:auto; max-height:360px; background:#0f172a; border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:14px; color:#e5e7eb;">Ответ появится здесь после записи времени.</pre>
+  </div>
+
+  <div class="card settings-card-accent" id="system-block">
+    <h2>Управление логами и данными</h2>
+    <div class="chips"><div class="chip">App log: {{.SettingsStats.AppLogPath}}</div><div class="chip">Размер app log: {{.SettingsStats.AppLogSizeHuman}}</div><div class="chip">Task log rows: {{.SettingsStats.TaskLogRows}}</div></div>
+    <div class="button-row" style="margin-top:16px;"><button class="btn btn-secondary" type="button" data-clear-kind="app">Очистить app log</button><button class="btn btn-secondary" type="button" data-clear-kind="tasks">Очистить task logs</button><button class="btn btn-danger" type="button" data-clear-kind="all">Очистить все логи</button><button class="btn btn-warning" type="button" id="clearSchedulesBtn">Очистить расписания</button><button class="btn btn-danger" type="button" id="clearDbBtn">Очистить БД</button></div><div class="muted" style="margin-top:10px;">Очистка расписаний удалит только строки из schedules: инверторы и шаблоны останутся, scheduler перестанет находить активные расписания. Очистка БД удалит инверторы, шаблоны, расписания и task logs, но сохранит системные настройки.</div><div class="field" style="margin-top:12px;"><label>Команда очистки расписаний</label><input value="curl -X POST http://localhost:8080/settings/schedules/clear" readonly></div>
+  </div>
+
+  <div class="card settings-card-accent">
+    <h2>Состояние системы</h2>
+    <div class="chips">
+      <div class="chip">Путь БД: {{.SettingsStats.DBPath}}</div><div class="chip">Размер БД: {{.SettingsStats.DBSizeHuman}}</div><div class="chip">Инверторов: {{.SettingsStats.TotalInverters}}</div><div class="chip">Активные: {{.SettingsStats.EnabledInverters}}</div><div class="chip">Неактивные: {{.SettingsStats.DisabledInverters}}</div><div class="chip">Online: {{.SettingsStats.OnlineInverters}}</div><div class="chip">Offline: {{.SettingsStats.OfflineInverters}}</div><div class="chip">Шаблонов: {{.SettingsStats.TotalTemplates}}</div><div class="chip">Шаблонов в работе: {{.SettingsStats.EnabledTemplates}}</div><div class="chip">Scheduler: {{if .SettingsStats.SchedulerEnabled}}Включён{{else}}Выключен{{end}}</div><div class="chip">Интервал: {{.SettingsStats.SchedulerIntervalMinutes}} мин.</div><div class="chip">Последний UTC: {{if .SettingsStats.LastSchedulerRunUTC}}{{.SettingsStats.LastSchedulerRunUTC}}{{else}}—{{end}}</div><div class="chip">Последний локально: {{if .SettingsStats.LastSchedulerRunLocal}}{{.SettingsStats.LastSchedulerRunLocal}}{{else}}—{{end}}</div><div class="chip">Проверено: {{.SettingsStats.LastSchedulerProcessed}}</div><div class="chip">Payload: {{.SettingsStats.LastSchedulerTriggered}}</div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/settings-page.js"></script>
+</body>
+</html>

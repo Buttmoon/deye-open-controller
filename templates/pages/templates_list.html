@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/templates-list.css">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="button-row"><a href="/" class="btn btn-secondary">← Назад</a><a href="/templates/edit" class="btn btn-primary">Создать шаблон</a><a href="/templates/import" class="btn btn-secondary">Импорт XLSX</a></div>
+    <h1>Шаблоны расписаний</h1>
+    <p class="muted">Поиск по имени шаблона, имени инвертора или IP инвертора.</p>
+    <form method="GET" action="/templates/list">
+      <div class="field"><label for="search">Поиск</label><input id="search" name="search" value="{{.Search}}" placeholder="Например: Ночной режим, Инвертор 1, 192.168.1.10"></div>
+      <div class="button-row"><button type="submit" class="btn btn-primary">Искать</button><a href="/templates/list" class="btn btn-secondary">Сбросить</a></div>
+    </form>
+  </div>
+  <div class="card">
+    {{if .Templates}}
+      {{range .Templates}}
+      <div class="template-card">
+        <div class="template-header">
+          <div>
+            <div class="template-title">{{.Name}}</div>
+            <div class="template-meta">Режим: {{.ViewMode}} | Используется: {{.InverterCount}}</div>
+            {{if .Description}}<div class="template-meta" style="margin-top:6px;">{{.Description}}</div>{{end}}
+          </div>
+          <div class="button-row"><a href="/templates/edit?id={{.ID}}" class="btn btn-secondary">Редактировать</a><button type="button" class="btn btn-secondary delete-template-btn" data-id="{{.ID}}" data-name="{{.Name}}">Удалить</button></div>
+        </div>
+        <div class="template-section"><div class="template-section-title">Связанные инверторы</div>
+          {{if .UsedInverters}}<div class="chips">{{range .UsedInverters}}<div class="chip">{{.}}</div>{{end}}</div>{{else}}<div class="muted">Шаблон пока не назначен ни одному инвертору</div>{{end}}
+        </div>
+      </div>
+      {{end}}
+    {{else}}
+      <div class="muted">Шаблоны не найдены</div>
+    {{end}}
+    <div class="pagination">{{if .HasPrev}}<a href="/templates/list?page={{.PrevPage}}&search={{.Search}}">← Назад</a>{{end}}<span>Страница {{.Page}} из {{.TotalPages}}</span>{{if .HasNext}}<a href="/templates/list?page={{.NextPage}}&search={{.Search}}">Далее →</a>{{end}}</div>
+  </div>
+</div>
+<script src="/static/js/common.js"></script>
+<script>
+document.querySelectorAll('.delete-template-btn').forEach(btn => {
+  btn.addEventListener('click', async function () {
+    const id = this.dataset.id;
+    const name = this.dataset.name || 'шаблон';
+    if (!confirm(`Удалить шаблон "${name}"? Привязка у расписаний будет снята, сами расписания останутся.`)) return;
+
+    const params = new URLSearchParams();
+    params.append('id', id);
+
+    try {
+      const response = await fetch('/templates/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+        body: params.toString()
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        alert(data.message || 'Ошибка удаления шаблона');
+        return;
+      }
+      window.location.href = data.redirect || '/templates/list';
+    } catch (e) {
+      alert('Ошибка соединения с сервером');
+    }
+  });
+});
+</script>
+</body>
+</html>

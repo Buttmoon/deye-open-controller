@@ -1,0 +1,40 @@
+Release: audited multi-inverter profiles + XLSX delivery
+Date: 2026-08-04
+
+Validated:
+- Registry: 5 model profiles, exactly one default
+- Profile sizes: legacy 60 kW = 199 parameters; four variant profiles = 200 each
+- JSON registry/profile validation: PASS
+- Extended register audit (TOU 141-177, scales, limits, masks, writable collisions): PASS
+- Go unit tests with local Modbus/SQLite compile-check stubs: PASS
+- go vet with the same compile-check stubs: PASS
+- JavaScript asset and inline-template syntax: PASS
+- Shell syntax: PASS
+- Python audit script syntax: PASS
+- Log delivery HTML template parse: PASS
+
+Key verified invariants:
+- six TOU time registers: 148-153
+- six power registers: 154-159
+- six voltage registers: 160-165
+- six SOC registers: 166-171
+- six Grid/Gen[/Sell] bitfields: 172-177
+- model power caps: 25/30/60 kW and legacy 32 kW cap
+- V104 Sell modes blocked; V105.4 Sell modes allowed
+- registers 112/141/146/179 use masked read-modify-write
+- grid regulatory registers 182-184 are read-only
+- all writable fields have logical and raw bounds
+- experimental profiles require per-device write confirmation
+
+Environment limitations:
+- Production go.mod requires Go 1.25.0; local environment has Go 1.23.2.
+- Production build was attempted with GOTOOLCHAIN=local and stopped before compilation: go.mod requires Go 1.25.0, local Go is 1.23.2.
+- Full production build with real external dependencies was therefore not completed in this environment.
+- Physical Deye inverters were not connected; firmware compatibility remains to be validated by REGISTER_TEST_PROCEDURE.md.
+- V105.4 HV program-voltage scale 0.1 V/raw is explicit in the SG01 H/L map; for SG02 and the unknown 60 kW firmware it remains an experimental mapping until read-only confirmation.
+
+Not included intentionally:
+- compile-check stubs and go.validate.mod
+- old/stale compiled binaries
+- application database and WAL/SHM files
+- production/application logs

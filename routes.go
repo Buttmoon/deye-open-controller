@@ -1,0 +1,96 @@
+package main
+
+import (
+	"io/fs"
+	"net/http"
+)
+
+func (a *App) registerRoutes() {
+	a.mux.Handle("/static/", staticFileServer())
+	a.mux.HandleFunc("/", a.homeHandler)
+	a.mux.HandleFunc("/settings", a.settingsPageHandler)
+	a.mux.HandleFunc("/tasks/settings", a.tasksSettingsPageHandler)
+	a.mux.HandleFunc("/logs", a.appLogsPageHandler)
+	a.mux.HandleFunc("/inverter-logging", a.inverterLoggingPageHandler)
+	a.mux.HandleFunc("/api/docs", a.apiDocsPageHandler)
+	a.mux.HandleFunc("/log-delivery", a.logDeliveryPageHandler)
+	a.mux.HandleFunc("/log-delivery/save", a.saveLogDeliverySettingsHandler)
+	a.mux.HandleFunc("/log-delivery/run-now", a.runLogDeliveryNowHandler)
+	a.mux.HandleFunc("/log-delivery/test-smtp-send", a.testSMTPDeliveryHandler)
+	a.mux.HandleFunc("/log-delivery/test-telegram", a.testTelegramAvailabilityHandler)
+	a.mux.HandleFunc("/log-delivery/test-telegram-send", a.testTelegramDeliveryHandler)
+	a.mux.HandleFunc("/log-delivery/test-storage", a.testStorageAvailabilityHandler)
+	a.mux.HandleFunc("/log-delivery/test-storage-upload", a.testStorageDeliveryHandler)
+
+	a.mux.HandleFunc("/inverters", a.createInverterHandler)
+	a.mux.HandleFunc("/inverters/delete", a.deleteInverterHandler)
+	a.mux.HandleFunc("/inverters/settings", a.updateInverterSettingsHandler)
+	a.mux.HandleFunc("/settings/timezone", a.updateTimezoneHandler)
+	a.mux.HandleFunc("/settings/scheduler", a.updateSchedulerToggleHandler)
+	a.mux.HandleFunc("/settings/file-logging", a.updateFileLoggingToggleHandler)
+	a.mux.HandleFunc("/settings/runtime", a.updateRuntimeSettingsHandler)
+	a.mux.HandleFunc("/settings/inverter-logging", a.updateInverterLoggingSettingsHandler)
+	a.mux.HandleFunc("/settings/logs/clear", a.clearLogsHandler)
+	a.mux.HandleFunc("/settings/db/clear", a.clearDatabaseHandler)
+	a.mux.HandleFunc("/settings/schedules/clear", a.clearSchedulesHandler)
+	a.mux.HandleFunc("/settings/modbus-write", a.customModbusWriteHandler)
+	a.mux.HandleFunc("/settings/inverter-time", a.setInverterTimeHandler)
+	a.mux.HandleFunc("/api/modbus/write", a.customModbusWriteHandler)
+	a.mux.HandleFunc("/api/inverter-time/set", a.setInverterTimeHandler)
+	a.mux.HandleFunc("/api/inverter/screen", a.apiInverterScreenHandler)
+
+	a.mux.HandleFunc("/schedules", a.schedulesPageHandler)
+	a.mux.HandleFunc("/scheduler", a.schedulesPageHandler)
+	a.mux.HandleFunc("/sheduler", a.schedulesPageHandler)
+	a.mux.HandleFunc("/schedules/toggle", a.toggleSchedulesHandler)
+	a.mux.HandleFunc("/schedules/save", a.saveSchedulesHandler)
+	a.mux.HandleFunc("/schedules/export", a.exportScheduleXLSXHandler)
+	a.mux.HandleFunc("/api/schedules/send-preview", a.previewScheduleRegisterWritesHandler)
+
+	a.mux.HandleFunc("/templates", a.createTemplateHandler)
+	a.mux.HandleFunc("/templates/apply", a.applyTemplateHandler)
+	a.mux.HandleFunc("/templates/list", a.templatesListHandler)
+	a.mux.HandleFunc("/templates/edit", a.templateEditPageHandler)
+	a.mux.HandleFunc("/templates/save", a.templateSaveHandler)
+	a.mux.HandleFunc("/templates/delete", a.deleteTemplateHandler)
+	a.mux.HandleFunc("/templates/apply-page", a.templateApplyPageHandler)
+	a.mux.HandleFunc("/templates/apply-to-inverters", a.applyTemplateToInvertersHandler)
+	a.mux.HandleFunc("/templates/import", a.templateImportPageHandler)
+	a.mux.HandleFunc("/templates/import/example.xlsx", a.templateImportExampleXLSXHandler)
+	a.mux.HandleFunc("/templates/import/upload", a.templateImportUploadHandler)
+	a.mux.HandleFunc("/tasks/logs", a.taskLogsPageHandler)
+	a.mux.HandleFunc("/tasks/run-now", a.runSchedulerNowHandler)
+	a.mux.HandleFunc("/tasks/restart-last", a.restartPreviousTaskHandler)
+	a.mux.HandleFunc("/logs/monitor", a.appLogsPageHandler)
+	a.mux.HandleFunc("/api/logs", a.apiLogsHandler)
+	a.mux.HandleFunc("/api/logs/raw", a.rawAppLogsHandler)
+	a.mux.HandleFunc("/api/inverter-logs", a.apiInverterLogFilesHandler)
+	a.mux.HandleFunc("/api/inverter-logs/status", a.apiInverterLoggerStatusHandler)
+	a.mux.HandleFunc("/api/inverter-logs/run-now", a.runInverterLoggerNowHandler)
+	a.mux.HandleFunc("/api/inverter-logs/file", a.apiInverterLogFileHandler)
+	a.mux.HandleFunc("/api/inverter-logs/export", a.apiInverterLogExportHandler)
+	a.mux.HandleFunc("/api/inverter-logs/records", a.apiInverterLogRecordsHandler)
+	a.mux.HandleFunc("/api/tasks/status", a.apiSchedulerStatusHandler)
+	a.mux.HandleFunc("/api/tasks/run-now", a.runSchedulerNowHandler)
+	a.mux.HandleFunc("/api/tasks/restart-last", a.restartPreviousTaskHandler)
+
+	a.mux.HandleFunc("/api/inverters", a.apiInvertersHandler)
+	a.mux.HandleFunc("/api/inverter-models", a.apiInverterModelsHandler)
+	a.mux.HandleFunc("/api/templates", a.apiTemplatesHandler)
+	a.mux.HandleFunc("/api/templates/", a.apiTemplateByIDHandler)
+	a.mux.HandleFunc("/api/schedules", a.apiSchedulesHandler)
+	a.mux.HandleFunc("/api/schedules/bind-template", a.apiBindTemplateHandler)
+
+	a.mux.HandleFunc("/integration", a.integrationPageHandler)
+	a.mux.HandleFunc("/integration/save", a.saveIntegrationSettingsHandler)
+	a.mux.HandleFunc("/integration/test", a.testIntegrationPushHandler)
+	a.mux.HandleFunc("/integration/preview", a.previewIntegrationPayloadHandler)
+}
+
+func staticFileServer() http.Handler {
+	sub, err := fs.Sub(staticAssets, "templates/assets")
+	if err != nil {
+		panic("embedded assets not found: " + err.Error())
+	}
+	return http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
+}

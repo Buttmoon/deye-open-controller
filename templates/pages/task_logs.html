@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <style>
+    .log-search { margin-top: 14px; }
+    .log-search input {
+      width: 100%;
+      padding: 12px 14px;
+      background:#0f172a;
+      border:1px solid rgba(255,255,255,.09);
+      border-radius:12px;
+      color:#e5e7eb;
+    }
+    .payload-box { max-width: 520px; }
+    .payload-toggle { margin-bottom: 8px; }
+    .payload-json { display:none; white-space:pre-wrap; word-break:break-word; max-height:360px; overflow:auto; }
+    .payload-json.open { display:block; }
+    .tag { display:inline-block; padding:4px 8px; border:1px solid rgba(255,255,255,.1); border-radius:999px; color:#94a3b8; font-size:12px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="button-row"><a href="/" class="btn btn-secondary">← Назад</a><a href="/logs/monitor" class="btn btn-secondary">App Logs</a><a href="/api/logs?kind=task&limit=200" class="btn btn-secondary" target="_blank">API JSON</a></div>
+    <h1>Журнал выполнения задач</h1>
+    <p class="muted">Хранятся последние выполнения почасовой задачи с payload, который отправляется в консоль.</p>
+    <div class="log-search">
+      <input id="taskLogSearch" type="text" placeholder="Поиск по имени инвертора или ip:port, например inverter-1 или 192.168.1.10:8899">
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>UTC</th><th>Локальное время</th><th>Инвертор</th><th>Шаблон</th><th>Статус</th><th>Сообщение</th><th>Payload</th></tr>
+        </thead>
+        <tbody id="taskLogsTableBody">
+        {{if .Logs}}
+          {{range .Logs}}
+          <tr class="task-log-row" data-search="{{.InverterName}} {{.InverterIP}}:{{.InverterPort}} {{.InverterIP}} {{.TemplateName}} {{.Status}}">
+            <td>{{.ID}}</td>
+            <td>{{.ExecutedAtUTC}}</td>
+            <td>{{.ExecutedAtLocal}}</td>
+            <td>
+              {{if .InverterName}}
+              <div>{{.InverterName}}</div>
+              <div class="tag">{{.InverterIP}}:{{.InverterPort}}</div>
+              {{else}}
+              <div>Системная задача</div>
+              <div class="tag">scheduler</div>
+              {{end}}
+            </td>
+            <td>{{.TemplateName}}</td>
+            <td>{{.Status}}</td>
+            <td>{{.Message}}</td>
+            <td>
+              <div class="payload-box">
+                {{if .PayloadJSON}}
+                <button type="button" class="btn btn-secondary payload-toggle">Показать JSON</button>
+                <pre class="payload-json">{{.PayloadJSON}}</pre>
+                {{else}}
+                <span class="muted">—</span>
+                {{end}}
+              </div>
+            </td>
+          </tr>
+          {{end}}
+        {{else}}
+          <tr><td colspan="8" class="muted">Пока записей нет</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+  document.querySelectorAll('.payload-toggle').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const pre = this.parentElement.querySelector('.payload-json');
+      if (!pre) return;
+      pre.classList.toggle('open');
+      this.textContent = pre.classList.contains('open') ? 'Скрыть JSON' : 'Показать JSON';
+    });
+  });
+
+  const searchInput = document.getElementById('taskLogSearch');
+  const rows = Array.from(document.querySelectorAll('.task-log-row'));
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      const q = this.value.trim().toLowerCase();
+      rows.forEach(row => {
+        const hay = (row.dataset.search || '').toLowerCase();
+        row.style.display = !q || hay.includes(q) ? '' : 'none';
+      });
+    });
+  }
+</script>
+<script src="/static/js/common.js?v=20260619ui2"></script>
+</body>
+</html>

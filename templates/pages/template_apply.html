@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="card">
+    <div class="button-row" style="margin-bottom:16px;"><a href="/" class="btn btn-secondary">← Назад</a></div>
+    <h1>Быстрая установка шаблона</h1>
+    <p>Выбрано инверторов: {{.SelectedCount}}. Один шаблон хранит логические значения, а при применении адреса и raw-масштабы рассчитываются отдельно по профилю каждой модели.</p>
+    <div class="inverters-box">{{range .Inverters}}<div class="inv-chip"><strong>{{.Name}}</strong> | {{.IP}}:{{.Port}}<br><small>{{.ModelName}} · <code>{{.ModelKey}}</code></small></div>{{end}}</div>
+    <input type="hidden" id="selectedIDs" value="{{.SelectedIDs}}">
+    <div class="field" style="margin-top:18px;"><label for="templateSelect">Шаблон</label><select id="templateSelect"><option value="">-- выбери шаблон --</option>{{range .Templates}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+    <div class="button-row"><button class="btn btn-primary" type="button" id="applyTemplateBtn">Применить шаблон</button></div>
+  </div>
+</div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/template-apply-page.js"></script>
+</body>
+</html>

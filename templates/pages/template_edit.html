@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=20260701a">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="card">
+    <div class="button-row" style="margin-bottom:16px;"><a href="/templates/list" class="btn btn-secondary">← К списку шаблонов</a></div>
+    <h1>{{if .IsEdit}}Редактирование шаблона{{else}}Создание шаблона{{end}}</h1>
+    <p class="muted">Шаблон расписания с точностью до 5 минут. Scheduler отправляет расписание каждые 5 минут. Универсальный шаблон можно сохранить в пределах {{.SchedulePowerMaxW}} W / {{.GridExportMaxW}} W, но при применении он дополнительно проверяется по фактическому пределу выбранной модели.</p>
+    <div class="field"><label for="templateName">Имя шаблона</label><input id="templateName" value="{{.Name}}"></div>
+    <div class="field"><label for="templateDescription">Описание</label><input id="templateDescription" value="{{.Description}}"></div>
+    <input type="hidden" id="templateID" value="{{.TemplateID}}">
+    <input type="hidden" id="viewMode" value="grid">
+    <textarea id="scheduleJSON" class="hidden">{{.ScheduleJSON}}</textarea>
+    <div id="useTimerMaskPanel"></div>
+    <div id="gridView" class="day-grid"></div>
+    <div class="button-row" style="margin-top:18px;"><button class="btn btn-primary" type="button" id="saveTemplateBtn">Сохранить шаблон</button></div>
+  </div>
+</div>
+<div id="dayModal" class="modal"><div class="modal-content"><div class="button-row" style="justify-content:space-between;align-items:center;"><h3 id="modalDayTitle">День</h3><button class="btn btn-secondary" id="modalCloseBtn" type="button">Закрыть</button></div><div id="modalDayEditor"></div></div></div>
+<script>window.chargeModeOptions = {{.ChargeModeOptionsJSON}}; window.schedulePowerMaxW = {{.SchedulePowerMaxW}}; window.gridExportMaxW = {{.GridExportMaxW}};</script>
+<script src="/static/js/common.js?v=20260525d"></script>
+<script src="/static/js/schedule_editor.js?v=20260706a"></script>
+<script src="/static/js/template-edit-page.js?v=20260706a"></script>
+</body>
+</html>

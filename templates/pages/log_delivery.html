@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>{{.Title}}</title><link rel="stylesheet" href="/static/css/common.css?v=20260804">
+</head>
+<body><div id="popup" class="popup"></div><div class="container">
+  <div class="button-row" style="margin-bottom:16px"><a href="/" class="btn btn-secondary">← На главную</a><a href="/inverter-logging" class="btn btn-secondary">Логирование</a><a href="/tasks/settings" class="btn btn-secondary">Периодические задачи</a></div>
+  <div class="card page-header"><h1>Рассылка XLSX логов</h1><p class="muted">Задача собирает записи inverter log за выбранный период в один XLSX и отправляет файл по включённым каналам. Период данных и частота отправки настраиваются независимо; интервал запуска считается от последнего запуска. Секреты не возвращаются в HTML и не пишутся в журналы; они хранятся в локальной SQLite-базе приложения, поэтому файл <code>data/app.db</code> должен быть доступен только пользователю сервиса.</p></div>
+  <form id="deliveryForm">
+    <div class="card"><h2>Периодическая задача</h2>
+      <div class="field"><label>Локация отчёта:</label><div><strong>{{.ReportLocationName}}</strong></div><div class="muted">Источник: {{.ReportLocationSource}}. Используется то же имя, что и на главной странице: сначала «Имя приложения», затем имя первого инвертора, затем стандартное имя.</div></div>
+      <div class="field"><label><input type="checkbox" name="enabled" value="1" {{if .Settings.Enabled}}checked{{end}}> Включить автоматическую доставку</label></div>
+      <div class="field"><label>Запускать рассылку каждые N часов</label><input name="interval_hours" type="number" min="1" max="8760" value="{{.Settings.IntervalHours}}"><div class="muted">Это частота отправки, она не изменяет период данных внутри XLSX.</div></div>
+      <div class="field"><label>Какой период лога включать в XLSX</label><select name="lookback_period" id="lookbackPeriod">
+        <option value="6_hours" {{if eq .Settings.LookbackPeriod "6_hours"}}selected{{end}}>Последние 6 часов</option>
+        <option value="12_hours" {{if eq .Settings.LookbackPeriod "12_hours"}}selected{{end}}>Последние 12 часов</option>
+        <option value="day" {{if eq .Settings.LookbackPeriod "day"}}selected{{end}}>Последние 24 часа</option>
+        <option value="custom_days" {{if eq .Settings.LookbackPeriod "custom_days"}}selected{{end}}>Несколько дней</option>
+        <option value="week" {{if eq .Settings.LookbackPeriod "week"}}selected{{end}}>Последние 7 дней</option>
+        <option value="month" {{if eq .Settings.LookbackPeriod "month"}}selected{{end}}>Последний месяц (календарно)</option>
+      </select></div>
+      <div class="field" id="customDaysField"><label>Количество дней</label><input name="lookback_custom_days" type="number" min="2" max="365" value="{{.Settings.LookbackCustomDays}}"><div class="muted">Используется только для варианта «Несколько дней».</div></div>
+      <p class="muted">При ручном запуске кнопкой ниже используется тот же выбранный период. Для месяца начало диапазона вычисляется календарно: например, 31 марта → 28/29 февраля, а не просто минус 720 часов.</p>
+      <p class="muted">Последний запуск: {{if .Settings.LastRunUTC}}{{.Settings.LastRunUTC}} · {{.Settings.LastStatus}} · {{.Settings.LastMessage}}{{else}}ещё не выполнялся{{end}}</p>
+    </div>
+
+    <div class="card"><h2>Электронная почта (SMTP)</h2>
+      <div class="field"><label><input type="checkbox" name="smtp_enabled" value="1" {{if .Settings.SMTPEnabled}}checked{{end}}> Отправлять XLSX по email</label></div>
+      <div class="field"><label>SMTP host</label><input name="smtp_host" value="{{.Settings.SMTPHost}}" placeholder="smtp.example.com"></div>
+      <div class="field"><label>SMTP port</label><input name="smtp_port" type="number" min="1" max="65535" value="{{.Settings.SMTPPort}}"></div>
+      <div class="field"><label>Шифрование</label><select name="smtp_tls_mode"><option value="starttls" {{if eq .Settings.SMTPTLSMode "starttls"}}selected{{end}}>STARTTLS</option><option value="implicit_tls" {{if eq .Settings.SMTPTLSMode "implicit_tls"}}selected{{end}}>Implicit TLS</option><option value="none" {{if eq .Settings.SMTPTLSMode "none"}}selected{{end}}>Без TLS</option></select><div class="muted">Режим «Без TLS» используйте только внутри доверенной изолированной сети; обычные пароли через открытый Интернет так передавать нельзя.</div></div>
+      <div class="field"><label>Логин</label><input name="smtp_username" value="{{.Settings.SMTPUsername}}"></div>
+      <div class="field"><label>Пароль / app password</label><input name="smtp_password" type="password" placeholder="{{if .SMTPPasswordStored}}Сохранён; оставьте пустым без изменения{{else}}Введите пароль{{end}}"></div>
+      <div class="field"><label>From</label><input name="smtp_from" value="{{.Settings.SMTPFrom}}" placeholder="inverter@example.com"></div>
+      <div class="field"><label>Получатели</label><textarea name="smtp_recipients" rows="3" placeholder="user1@example.com, user2@example.com">{{.Settings.SMTPRecipients}}</textarea><div class="muted">Можно разделять запятыми, точкой с запятой или новой строкой.</div></div>
+      <div class="field"><label>Тема письма</label><div id="smtpSubjectPreview" class="muted">Deye Log — {{.ReportLocationName}} — &lt;дата&gt; &lt;время&gt;</div><div class="muted">Дата и время берутся из часового пояса приложения в момент формирования XLSX.</div></div>
+      <div class="button-row"><button type="button" id="testSMTPDelivery" class="btn btn-secondary">Отправить тестовый XLSX по email</button></div>
+      <div id="smtpTestStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card"><h2>Telegram-бот</h2>
+      <div class="field"><label><input type="checkbox" name="telegram_enabled" value="1" {{if .Settings.TelegramEnabled}}checked{{end}}> Отправлять XLSX документом через бота</label></div>
+      <div class="field"><label>Bot token</label><input name="telegram_bot_token" type="password" placeholder="{{if .TelegramTokenStored}}Сохранён; оставьте пустым без изменения{{else}}123456:ABC...{{end}}"></div>
+      <div class="field"><label>Chat ID / ID чатов</label><textarea name="telegram_chat_ids" rows="3" placeholder="-1001234567890">{{.Settings.TelegramChatIDs}}</textarea><div class="muted">Бота нужно заранее добавить в чат и дать право отправлять сообщения. Несколько ID разделяются запятыми или строками.</div></div>
+      <div class="field"><label>Подпись</label><input name="telegram_caption" value="{{.Settings.TelegramCaption}}"></div>
+      <div class="button-row"><button type="button" id="testTelegramAvailability" class="btn btn-secondary">Проверить доступность бота и чатов</button><button type="button" id="testTelegramDelivery" class="btn btn-secondary">Отправить тестовый XLSX в Telegram</button></div>
+      <div id="telegramTestStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card"><h2>Облачное хранилище</h2>
+      <div class="field"><label><input type="checkbox" name="storage_enabled" value="1" {{if .Settings.StorageEnabled}}checked{{end}}> Загружать XLSX в хранилище</label></div>
+      <div class="field"><label>Провайдер</label><select name="storage_provider" id="storageProvider"><option value="webdav" {{if eq .Settings.StorageProvider "webdav"}}selected{{end}}>Generic WebDAV</option><option value="yandex_disk" {{if eq .Settings.StorageProvider "yandex_disk"}}selected{{end}}>Yandex Disk REST API (OAuth)</option><option value="yandex_webdav" {{if eq .Settings.StorageProvider "yandex_webdav"}}selected{{end}}>Yandex Disk WebDAV</option><option value="owncloud" {{if eq .Settings.StorageProvider "owncloud"}}selected{{end}}>ownCloud WebDAV</option><option value="nextcloud" {{if eq .Settings.StorageProvider "nextcloud"}}selected{{end}}>Nextcloud WebDAV</option><option value="google_drive" {{if eq .Settings.StorageProvider "google_drive"}}selected{{end}}>Google Drive API</option></select></div>
+      <div id="webdavFields">
+        <div class="field"><label>WebDAV URL</label><input name="storage_url" value="{{.Settings.StorageURL}}" placeholder="https://cloud.example.com/remote.php/dav/files/user/"></div>
+        <div class="field"><label>Логин</label><input name="storage_username" value="{{.Settings.StorageUsername}}"></div>
+        <div class="field"><label>Пароль / app password</label><input name="storage_password" type="password" placeholder="{{if .StoragePasswordStored}}Сохранён; оставьте пустым без изменения{{else}}Введите пароль приложения{{end}}"></div>
+        <div class="field"><label>Папка внутри WebDAV</label><input name="storage_remote_path" value="{{.Settings.StorageRemotePath}}" placeholder="inverter-logs"></div>
+        <p class="muted">Nextcloud/ownCloud: обычно <code>https://host/remote.php/dav/files/USER/</code>. Для Yandex WebDAV укажите URL и пароль приложения; доступность WebDAV зависит от тарифа аккаунта.</p>
+      </div>
+      <div id="yandexFields">
+        <div class="field"><label>OAuth-токен Yandex Disk</label><input name="yandex_oauth_token" type="password" placeholder="{{if .StoragePasswordStored}}Сохранён; оставьте пустым без изменения{{else}}Введите OAuth-токен{{end}}"></div>
+        <div class="field"><label>Папка на Диске</label><input name="storage_remote_path" value="{{.Settings.StorageRemotePath}}" placeholder="app:/inverter-logs"></div>
+        <p class="muted">Используется REST API. Если префикс не указан, путь сохраняется внутри <code>app:/</code>. Недостающие папки создаются автоматически.</p>
+      </div>
+      <div id="googleFields">
+        <div class="field"><label>Google OAuth Client ID</label><input name="google_client_id" value="{{.Settings.GoogleClientID}}"></div>
+        <div class="field"><label>Google OAuth Client Secret</label><input name="google_client_secret" type="password" placeholder="{{if .GoogleSecretStored}}Сохранён; оставьте пустым без изменения{{end}}"></div>
+        <div class="field"><label>Google OAuth Refresh Token</label><input name="google_refresh_token" type="password" placeholder="{{if .GoogleRefreshTokenStored}}Сохранён; оставьте пустым без изменения{{end}}"></div>
+        <div class="field"><label>Folder ID</label><input name="google_folder_id" value="{{.Settings.GoogleFolderID}}"></div>
+      </div>
+      <p class="muted">ownCloud и Nextcloud используют WebDAV URL пользователя; папка WebDAV должна существовать заранее. Yandex Disk REST использует OAuth-токен и создаёт путь автоматически. Google Drive использует OAuth refresh token и multipart upload.</p>
+      <div class="button-row"><button type="button" id="testStorageAvailability" class="btn btn-secondary">Проверить доступность хранилища</button><button type="button" id="testStorageDelivery" class="btn btn-secondary">Загрузить тестовый XLSX</button></div>
+      <div id="storageTestStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card"><div class="button-row"><button type="button" id="saveDelivery" class="btn btn-primary">Сохранить</button><button type="button" id="runDelivery" class="btn btn-secondary">Сохранить и отправить сейчас</button></div></div>
+  </form>
+
+  <div class="card"><h2>История запусков</h2><div class="table-wrap"><table><thead><tr><th>UTC</th><th>Статус</th><th>Файл</th><th>Размер</th><th>Сообщение</th></tr></thead><tbody>{{range .Runs}}<tr><td>{{.ExecutedAtUTC}}</td><td>{{.Status}}</td><td>{{.Filename}}</td><td>{{.SizeBytes}}</td><td>{{.Message}}</td></tr>{{else}}<tr><td colspan="5" class="muted">Запусков пока нет</td></tr>{{end}}</tbody></table></div></div>
+</div>
+<script src="/static/js/common.js"></script><script>
+(function(){
+ const form=document.getElementById('deliveryForm'), provider=document.getElementById('storageProvider'), webdav=document.getElementById('webdavFields'), yandex=document.getElementById('yandexFields'), google=document.getElementById('googleFields'), period=document.getElementById('lookbackPeriod'), customDays=document.getElementById('customDaysField');
+ function setGroup(group,visible){group.style.display=visible?'':'none'; group.querySelectorAll('input,select,textarea').forEach(el=>el.disabled=!visible);}
+ function toggleStorage(){const p=provider.value; setGroup(webdav,p!=='google_drive'&&p!=='yandex_disk'); setGroup(yandex,p==='yandex_disk'); setGroup(google,p==='google_drive');}
+ function togglePeriod(){setGroup(customDays,period.value==='custom_days');}
+ provider.addEventListener('change',toggleStorage); period.addEventListener('change',togglePeriod); toggleStorage(); togglePeriod();
+ async function request(url,params){try{return await postForm(url,params);}catch(e){showPopup('Ошибка соединения','error');return null;}}
+ async function persistCurrentForm(showSuccess){const result=await request('/log-delivery/save',new URLSearchParams(new FormData(form)));if(!result)return false;const {response,data}=result;if(!response.ok||!data.ok){showPopup(data.message||'Не удалось сохранить настройки','error');return false;}if(showSuccess)showPopup(data.message||'Настройки сохранены','success');return true;}
+ async function saveOnly(){await persistCurrentForm(true);}
+ async function saveAndRun(){if(!(await persistCurrentForm(false)))return;showPopup('Настройки сохранены, формируется XLSX…','success');const run=await request('/log-delivery/run-now',new URLSearchParams());if(!run)return;showPopup(run.data.message||'Готово',run.response.ok&&run.data.ok?'success':'error');if(run.response.ok&&run.data.ok)setTimeout(()=>location.reload(),700);}
+ async function saveThenAction(button,url,statusId,pendingText){const status=document.getElementById(statusId),original=button.textContent;if(!(await persistCurrentForm(false)))return;button.disabled=true;button.textContent=pendingText;status.textContent=pendingText;try{const result=await request(url,new URLSearchParams());if(!result){status.textContent='Ошибка соединения';return;}const ok=result.response.ok&&result.data.ok;status.textContent=result.data.message||'Готово';showPopup(result.data.message||'Готово',ok?'success':'error');}finally{button.disabled=false;button.textContent=original;}}
+ document.getElementById('saveDelivery').onclick=saveOnly; document.getElementById('runDelivery').onclick=saveAndRun;
+ const smtpButton=document.getElementById('testSMTPDelivery');smtpButton.onclick=()=>saveThenAction(smtpButton,'/log-delivery/test-smtp-send','smtpTestStatus','Отправка тестового XLSX…');
+ const telegramCheck=document.getElementById('testTelegramAvailability');telegramCheck.onclick=()=>saveThenAction(telegramCheck,'/log-delivery/test-telegram','telegramTestStatus','Проверка Telegram…');
+ const telegramSend=document.getElementById('testTelegramDelivery');telegramSend.onclick=()=>saveThenAction(telegramSend,'/log-delivery/test-telegram-send','telegramTestStatus','Отправка тестового XLSX…');
+ const storageCheck=document.getElementById('testStorageAvailability');storageCheck.onclick=()=>saveThenAction(storageCheck,'/log-delivery/test-storage','storageTestStatus','Проверка хранилища…');
+ const storageSend=document.getElementById('testStorageDelivery');storageSend.onclick=()=>saveThenAction(storageSend,'/log-delivery/test-storage-upload','storageTestStatus','Загрузка тестового XLSX…');
+})();</script></body></html>

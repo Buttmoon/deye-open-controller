@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="card">
+    <div class="button-row">
+      <a href="/" class="btn btn-secondary">← На главную</a>
+      <a href="/tasks/settings" class="btn btn-secondary">Периодические задачи</a>
+      <a href="/api/docs" class="btn btn-secondary">API</a>
+      <a href="/logs" class="btn btn-secondary">App log</a>
+      <a href="/api/inverter-logs/file?code=latest" class="btn btn-secondary" target="_blank">Скачать последний TXT</a><a href="/api/inverter-logs/file?code=latest&format=xlsx" class="btn btn-secondary" target="_blank">Скачать последний XLSX</a>
+    </div>
+    <h1>Логирование инвертора</h1>
+    <p class="muted">Периодическая задача последовательно опрашивает все зарегистрированные инверторы, для каждого выбирает его профиль регистров и пишет JSON-строки в <code>{{.SettingsStats.InverterLogDir}}</code>.</p>
+  </div>
+
+  <div class="card">
+    <h2>Настройки логирования</h2>
+    <form id="inverterLoggingForm">
+      <div class="field"><label><input type="checkbox" id="inverterLoggingEnabled" {{if .Settings.InverterLoggingEnabled}}checked{{end}}> Включить логирование инвертора</label></div>
+      <div class="field"><label for="inverterLoggingIntervalSeconds">Период логирования, секунд</label><input id="inverterLoggingIntervalSeconds" type="number" min="1" max="86400" value="{{.Settings.InverterLoggingIntervalSeconds}}"></div>
+      <div class="field"><label for="inverterLogMaxSizeMB">Размер одного inverter log файла, MB</label><input id="inverterLogMaxSizeMB" type="number" min="1" max="1024" value="{{.Settings.InverterLogMaxSizeMB}}"></div>
+      <div class="button-row">
+        <button type="submit" class="btn btn-primary">Сохранить и перезапустить логирование</button>
+        <button type="button" id="runInverterLoggerNowBtn" class="btn btn-warning">Проверить сейчас</button>
+      </div>
+    </form>
+    <p class="muted">Кнопка “Проверить сейчас” запускает один цикл чтения сразу, даже если периодическое логирование выключено. Это удобно для диагностики подключения.</p>
+  </div>
+
+  <div class="card">
+    <h2>Состояние задачи</h2>
+    <div class="chips">
+      <div class="chip">Включено: {{if .SettingsStats.InverterLoggingEnabled}}Да{{else}}Нет{{end}}</div>
+      <div class="chip">Интервал: {{.SettingsStats.InverterLoggingIntervalSeconds}} сек.</div>
+      <div class="chip">Макс. размер файла: {{.SettingsStats.InverterLogMaxSizeMB}} MB</div>
+      <div class="chip">Файлов: {{.SettingsStats.InverterLogFiles}}</div>
+      <div class="chip">Общий размер: {{.SettingsStats.InverterLogSizeHuman}}</div>
+      <div class="chip">Последний файл: {{if .SettingsStats.LastInverterLogFile}}{{.SettingsStats.LastInverterLogFile}}{{else}}—{{end}}</div>
+      <div class="chip">Последний запуск UTC: {{if .SettingsStats.LastInverterLoggerRunUTC}}{{.SettingsStats.LastInverterLoggerRunUTC}}{{else}}—{{end}}</div>
+      <div class="chip">Следующий запуск UTC: {{if .SettingsStats.NextInverterLoggerRunUTC}}{{.SettingsStats.NextInverterLoggerRunUTC}}{{else}}—{{end}}</div>
+      <div class="chip">Статус: {{if .SettingsStats.LastInverterLoggerStatus}}{{.SettingsStats.LastInverterLoggerStatus}}{{else}}—{{end}}</div>
+      <div class="chip">Прочитано параметров: {{.SettingsStats.LastInverterLoggerCount}}</div>
+      <div class="chip">Активных параметров: {{.SettingsStats.InverterLoggerActiveParams}}</div>
+      <div class="chip">Нулевых значений: {{.SettingsStats.InverterLoggerZeroParams}}</div>
+    </div>
+    <p class="muted" style="margin-top:12px;">{{.SettingsStats.LastInverterLoggerMessage}}</p>
+  </div>
+
+  <div class="card">
+    <h2>Диагностика подключения и запросов</h2>
+    <p class="muted">Этот блок обновляется каждые 2 секунды и показывает, идёт ли сейчас подключение/чтение регистров.</p>
+    <div id="liveLoggerStatus" style="white-space:pre-wrap; word-break:break-word; background:#0f172a; border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:14px;">Загрузка статуса...</div>
+  </div>
+
+  <div class="card">
+    <h2>Логирование в реальном времени</h2>
+    <p class="muted">Ниже отображается хвост последнего inverter log файла. Обновление каждые 2 секунды.</p>
+    <pre id="liveInverterLog" style="white-space:pre-wrap; word-break:break-word; max-height:520px; overflow:auto; background:#0f172a; border:1px solid rgba(255,255,255,.09); border-radius:12px; padding:14px;">Загрузка...</pre>
+  </div>
+
+
+  <div class="card">
+    <h2>Выгрузка лога за период</h2>
+    <p class="muted">Выгрузка поддерживает TXT/JSONL и XLSX. XLSX строится по требованиям архива: одна строка = один момент времени, уставки и фактические параметры в одной таблице.</p>
+    <form method="GET" action="/api/inverter-logs/export" target="_blank">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px;">
+        <div class="field"><label for="exportFile">Файл лога</label><select id="exportFile" name="file"><option value="">Последний файл / все файлы для периода</option>{{range .Files}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select></div>
+        <div class="field"><label for="exportFrom">С даты/времени</label><input id="exportFrom" name="from" type="datetime-local"></div>
+        <div class="field"><label for="exportTo">По дату/время</label><input id="exportTo" name="to" type="datetime-local"></div>
+        <div class="field"><label for="exportFormat">Формат</label><select id="exportFormat" name="format"><option value="xlsx">XLSX</option><option value="txt">TXT / JSONL</option></select></div>
+      </div>
+      <div class="field">
+        <label>Столбцы XLSX из профилей выбранных моделей</label>
+        <div class="export-fields-summary">
+          <button type="button" class="btn btn-secondary" id="openExportFieldsModal">Настроить отображаемые поля</button>
+          <span class="muted" id="exportFieldsSummary">Выбрано полей: 0</span>
+        </div>
+        <div class="modal" id="exportFieldsModal" aria-hidden="true">
+          <div class="modal-content export-fields-modal" role="dialog" aria-modal="true" aria-labelledby="exportFieldsTitle">
+            <div class="modal-header">
+              <div>
+                <h2 id="exportFieldsTitle">Настройка отображаемых полей в выгрузке таблицы</h2>
+                <p class="muted">Номер строки, дата и время добавляются всегда без номера. Остальные столбцы формируются как объединение параметров всех зарегистрированных профилей моделей.</p>
+              </div>
+              <button type="button" class="btn btn-secondary" id="closeExportFieldsModal">Закрыть</button>
+            </div>
+            <div class="export-fields-toolbar">
+              <input id="exportFieldsSearch" type="search" placeholder="Поиск по названию или коду">
+              <div class="button-row">
+                <button type="button" class="btn btn-secondary btn-xs" id="selectAllExportFields">Выбрать все</button>
+                <button type="button" class="btn btn-secondary btn-xs" id="selectActiveExportFields">Только активные</button>
+                <button type="button" class="btn btn-secondary btn-xs" id="clearExportFields">Снять все</button>
+              </div>
+            </div>
+            <div class="export-fields-list export-fields-table">
+          {{range .ExportColumns}}
+              <label class="export-field-option" data-active="{{if .Checked}}1{{else}}0{{end}}" data-search="{{.Number}} {{.Code}} {{.Name}} {{.Description}}" title="{{.Code}}">
+                <span class="export-field-code-cell"><span class="export-field-code">{{.Code}}</span></span>
+                <span class="export-field-description">{{if .Description}}{{.Description}}{{else}}Описание не задано{{end}}</span>
+                <span class="export-field-check-cell">
+                  <input type="checkbox" name="fields" value="{{.Code}}" {{if .Checked}}checked{{end}}>
+                  <span class="export-field-toggle-text" data-on="Вкл" data-off="Выкл">Вкл</span>
+                </span>
+              </label>
+          {{end}}
+            </div>
+            <div class="modal-footer">
+              <span class="muted" id="exportFieldsModalSummary">Выбрано полей: 0</span>
+              <button type="button" class="btn btn-primary" id="applyExportFieldsModal">Готово</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="button-row"><button type="submit" class="btn btn-primary">Выгрузить лог за период</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Созданные log файлы</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Файл</th><th>Размер</th><th>Изменён UTC</th><th>Действие</th></tr></thead>
+        <tbody>
+        {{if .Files}}
+          {{range .Files}}
+          <tr><td>{{.Name}}</td><td>{{.SizeHuman}}</td><td>{{.ModifiedUTC}}</td><td><div class="button-row"><a href="{{.DownloadURL}}" class="btn btn-secondary" target="_blank">TXT</a><a href="{{.DownloadURL}}&format=xlsx" class="btn btn-secondary" target="_blank">XLSX</a></div></td></tr>
+          {{end}}
+        {{else}}
+          <tr><td colspan="4" class="muted">Лог файлы пока не созданы</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/settings-page.js"></script>
+<script>
+(function(){
+  const logBox = document.getElementById('liveInverterLog');
+  const statusBox = document.getElementById('liveLoggerStatus');
+  const runBtn = document.getElementById('runInverterLoggerNowBtn');
+  const exportFieldsModal = document.getElementById('exportFieldsModal');
+  const exportFieldOptions = Array.from(document.querySelectorAll('.export-field-option'));
+  const exportFieldChecks = exportFieldOptions.map((el) => el.querySelector('input[type="checkbox"]')).filter(Boolean);
+  const exportFieldsSummary = document.getElementById('exportFieldsSummary');
+  const exportFieldsModalSummary = document.getElementById('exportFieldsModalSummary');
+  const exportFieldsSearch = document.getElementById('exportFieldsSearch');
+  const exportFieldsStorageKey = 'inverterLogExportFields';
+
+  function esc(value){
+    return String(value ?? '').replace(/[&<>'"]/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch];
+    });
+  }
+
+  function updateExportFieldsSummary(){
+    const selected = exportFieldChecks.filter((input) => input.checked).length;
+    const total = exportFieldChecks.length;
+    const text = `Выбрано полей: ${selected} из ${total}`;
+    if (exportFieldsSummary) exportFieldsSummary.textContent = text;
+    if (exportFieldsModalSummary) exportFieldsModalSummary.textContent = text;
+    exportFieldChecks.forEach((input) => {
+      const textEl = input.closest('.export-field-check-cell')?.querySelector('.export-field-toggle-text');
+      if (textEl) textEl.textContent = input.checked ? textEl.dataset.on : textEl.dataset.off;
+    });
+  }
+
+  function saveExportFieldsSelection(){
+    try {
+      localStorage.setItem(exportFieldsStorageKey, JSON.stringify(exportFieldChecks.filter((input) => input.checked).map((input) => input.value)));
+    } catch (e) {}
+  }
+
+  function restoreExportFieldsSelection(){
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(exportFieldsStorageKey) || 'null');
+    } catch (e) {}
+    if (!Array.isArray(saved)) return;
+    const selected = new Set(saved);
+    exportFieldChecks.forEach((input) => { input.checked = selected.has(input.value); });
+  }
+
+  function setExportFieldsModal(open){
+    if (!exportFieldsModal) return;
+    exportFieldsModal.classList.toggle('show', open);
+    exportFieldsModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) {
+      exportFieldsSearch?.focus();
+    }
+  }
+
+  function filterExportFields(){
+    const query = (exportFieldsSearch?.value || '').trim().toLowerCase();
+    exportFieldOptions.forEach((option) => {
+      const haystack = (option.dataset.search || '').toLowerCase();
+      option.classList.toggle('hidden', query !== '' && !haystack.includes(query));
+    });
+  }
+
+  document.getElementById('openExportFieldsModal')?.addEventListener('click', () => setExportFieldsModal(true));
+  document.getElementById('closeExportFieldsModal')?.addEventListener('click', () => setExportFieldsModal(false));
+  document.getElementById('applyExportFieldsModal')?.addEventListener('click', () => setExportFieldsModal(false));
+  exportFieldsModal?.addEventListener('click', (event) => {
+    if (event.target === exportFieldsModal) setExportFieldsModal(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && exportFieldsModal?.classList.contains('show')) setExportFieldsModal(false);
+  });
+  document.getElementById('selectAllExportFields')?.addEventListener('click', () => {
+    exportFieldChecks.forEach((input) => { input.checked = true; });
+    saveExportFieldsSelection();
+    updateExportFieldsSummary();
+  });
+  document.getElementById('selectActiveExportFields')?.addEventListener('click', () => {
+    exportFieldOptions.forEach((option) => {
+      const input = option.querySelector('input[type="checkbox"]');
+      if (input) input.checked = option.dataset.active === '1';
+    });
+    saveExportFieldsSelection();
+    updateExportFieldsSummary();
+  });
+  document.getElementById('clearExportFields')?.addEventListener('click', () => {
+    exportFieldChecks.forEach((input) => { input.checked = false; });
+    saveExportFieldsSelection();
+    updateExportFieldsSummary();
+  });
+  exportFieldChecks.forEach((input) => input.addEventListener('change', () => {
+    saveExportFieldsSelection();
+    updateExportFieldsSummary();
+  }));
+  exportFieldsSearch?.addEventListener('input', filterExportFields);
+  restoreExportFieldsSelection();
+  updateExportFieldsSummary();
+
+  async function loadLatestLog(){
+    if (!logBox) return;
+    try {
+      const response = await fetch('/api/inverter-logs/file?code=latest&format=json&limit=120', {cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        logBox.textContent = data.message || 'Лог файл пока не найден';
+        return;
+      }
+      logBox.textContent = (data.lines || []).join('\n') || 'Лог пока пустой';
+      logBox.scrollTop = logBox.scrollHeight;
+    } catch (e) {
+      logBox.textContent = 'Ошибка чтения логов: ' + e;
+    }
+  }
+
+  async function loadStatus(){
+    if (!statusBox) return;
+    try {
+      const response = await fetch('/api/inverter-logs/status', {cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        statusBox.textContent = data.message || 'Ошибка чтения статуса';
+        return;
+      }
+      const target = data.target ? `${data.target.name || 'Инвертор'} (${data.target.ip}:${data.target.port})` : `не найден: ${data.target_error || 'нет данных'}`;
+      const errors = (data.last_errors || []).length ? '\nОшибки:\n- ' + (data.last_errors || []).map(esc).join('\n- ') : '';
+      statusBox.innerHTML =
+        `Включено: ${data.enabled ? 'Да' : 'Нет'}\n` +
+        `Сейчас выполняется: ${data.running ? 'Да' : 'Нет'}\n` +
+        `Целевой инвертор: ${esc(target)}\n` +
+        `Текущий шаг: ${esc(data.current_step || '—')}\n` +
+        `Последний статус: ${esc(data.last_status || '—')}\n` +
+        `Последнее сообщение: ${esc(data.last_message || '—')}\n` +
+        `Последний старт UTC: ${esc(data.last_started_utc || '—')}\n` +
+        `Последний финиш UTC: ${esc(data.last_run_utc || '—')}\n` +
+        `Следующий запуск UTC: ${esc(data.next_run_utc || '—')}\n` +
+        `Последний файл: ${esc(data.last_file || data.latest_file || '—')}\n` +
+        `Прочитано: ${data.last_count || 0}/${data.active_params || 0}\n` +
+        `Записано нулей: ${data.zero_params || 0}\n` +
+        `Длительность прошлого цикла: ${data.last_duration_ms || 0} ms` + errors;
+    } catch (e) {
+      statusBox.textContent = 'Ошибка чтения статуса: ' + e;
+    }
+  }
+
+  runBtn?.addEventListener('click', async function(){
+    if (runBtn.disabled) return;
+    runBtn.disabled = true;
+    runBtn.textContent = 'Проверка выполняется...';
+    try {
+      const {response, data} = await postForm('/api/inverter-logs/run-now', new URLSearchParams());
+      if (!response.ok || !data.ok) {
+        showPopup(data.message || 'Проверка завершилась ошибкой', 'error');
+      } else {
+        showPopup(data.message || 'Проверка выполнена');
+      }
+      await loadStatus();
+      await loadLatestLog();
+    } catch (e) {
+      showPopup('Ошибка запуска проверки: ' + e, 'error');
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Проверить сейчас';
+    }
+  });
+
+  loadStatus();
+  loadLatestLog();
+  setInterval(loadStatus, 2000);
+  setInterval(loadLatestLog, 2000);
+})();
+</script>
+</body>
+</html>

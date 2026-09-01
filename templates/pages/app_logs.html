@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="button-row">
+      <a href="/" class="btn btn-secondary">← Назад</a>
+      <a href="/tasks/logs" class="btn btn-secondary">Task Logs</a>
+      <a href="/api/logs/raw" class="btn btn-secondary" target="_blank">Raw</a>
+    </div>
+    <h1>Мониторинг app логов</h1>
+    <p class="muted">Это файл app логов. Для JSON API используй /api/logs?kind=app&limit=200</p>
+  </div>
+  <div class="card">
+    {{if .Lines}}
+      <pre style="white-space:pre-wrap; word-break:break-word;">{{range .Lines}}{{.}}
+{{end}}</pre>
+    {{else}}
+      <div class="muted">Логов пока нет</div>
+    {{end}}
+  </div>
+</div>
+<script src="/static/js/common.js?v=20260619ui2"></script>
+</body>
+</html>

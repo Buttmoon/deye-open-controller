@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="card">
+    <div class="button-row"><a href="/" class="btn btn-secondary">← На главную</a><a href="/settings" class="btn btn-secondary">Общие настройки</a><a href="/tasks/logs" class="btn btn-secondary">Журнал задач</a><a href="/inverter-logging" class="btn btn-secondary">Логирование инвертора</a></div>
+    <h1>Периодические задачи</h1>
+    <p class="muted">На этой странице настраивается интервал запуска scheduler и управление циклом задач в реальном времени.</p>
+  </div>
+
+  <div class="card">
+    <h2>Параметры запуска</h2>
+    <form id="runtimeSettingsForm">
+      <div class="field"><label><input type="checkbox" id="schedulerEnabled" {{if .Settings.SchedulerEnabled}}checked{{end}}> Включить периодические задачи</label></div>
+      <div class="field"><label for="schedulerIntervalMinutes">Через какой промежуток запускать задачу, минут</label><input id="schedulerIntervalMinutes" type="number" value="{{.Settings.SchedulerIntervalMinutes}}" min="1" max="1440"></div>
+      <div class="field"><label for="logLevel">Уровень логирования</label><select id="logLevel"><option value="DEBUG" {{if eq .Settings.LogLevel "DEBUG"}}selected{{end}}>DEBUG</option><option value="INFO" {{if eq .Settings.LogLevel "INFO"}}selected{{end}}>INFO</option><option value="WARN" {{if eq .Settings.LogLevel "WARN"}}selected{{end}}>WARN</option><option value="ERROR" {{if eq .Settings.LogLevel "ERROR"}}selected{{end}}>ERROR</option></select></div>
+      <div class="field"><label><input type="checkbox" id="fileLoggingEnabled" {{if .Settings.FileLoggingEnabled}}checked{{end}}> Писать app логи в файл</label></div>
+      <div class="field"><label><input type="checkbox" id="schedulerFillAllPointsCurrent" {{if .Settings.SchedulerFillAllPointsCurrent}}checked{{end}}> Заполнять все 6 точек значениями текущего времени</label><div class="muted" style="margin-top:8px;">Аварийный режим для периодической задачи: не подтягивать старые значения точек, а использовать текущий слот расписания для параметров всех 6 точек.</div></div>
+      <div class="field"><label for="appLogMaxSizeMB">Максимальный размер app log, MB</label><input id="appLogMaxSizeMB" type="number" value="{{.Settings.AppLogMaxSizeMB}}" min="1" max="500"></div>
+      <div class="field"><label for="taskLogMaxRows">Максимум записей в журнале задач</label><input id="taskLogMaxRows" type="number" value="{{.Settings.TaskLogMaxRows}}" min="10" max="100000"></div>
+      <div class="button-row"><button type="submit" class="btn btn-primary">Сохранить и применить</button></div>
+      <div class="muted" style="margin-top:10px;">После сохранения scheduler автоматически перезапускается и сразу использует новый интервал и новые параметры логирования.</div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Состояние scheduler</h2>
+    <div class="chips">
+      <div class="chip">Предыдущий запуск UTC: {{if .SettingsStats.LastSchedulerRunUTC}}{{.SettingsStats.LastSchedulerRunUTC}}{{else}}—{{end}}</div>
+      <div class="chip">Предыдущий запуск локально: {{if .SettingsStats.LastSchedulerRunLocal}}{{.SettingsStats.LastSchedulerRunLocal}}{{else}}—{{end}}</div>
+      <div class="chip">Следующий запуск UTC: {{if .SettingsStats.NextSchedulerRunUTC}}{{.SettingsStats.NextSchedulerRunUTC}}{{else}}—{{end}}</div>
+      <div class="chip">Следующий запуск локально: {{if .SettingsStats.NextSchedulerRunLocal}}{{.SettingsStats.NextSchedulerRunLocal}}{{else}}—{{end}}</div>
+      <div class="chip">Обработано в прошлый цикл: {{.SettingsStats.LastSchedulerProcessed}}</div>
+      <div class="chip">Payload в прошлый цикл: {{.SettingsStats.LastSchedulerTriggered}}</div>
+      <div class="chip">Команда прошлого запуска: {{if .SettingsStats.LastSchedulerCommand}}{{.SettingsStats.LastSchedulerCommand}}{{else}}—{{end}}</div>
+    </div>
+    <div class="button-row" style="margin-top:16px;">
+      <button type="button" class="btn btn-secondary" id="restartLastTaskBtn">Перезапустить предыдущую задачу</button>
+      <button type="button" class="btn btn-primary" id="runNowBtn">Быстрый запуск следующей задачи</button>
+      <a href="/tasks/logs" class="btn btn-secondary">Открыть журнал задач</a>
+    </div>
+    <div class="field" style="margin-top:16px;"><label>Тестовая команда</label><input value="{{.TestCommand}}" readonly></div>
+  </div>
+</div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/settings-page.js"></script>
+</body>
+</html>

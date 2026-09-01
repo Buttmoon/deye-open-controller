@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=20260703c">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container">
+  <div class="button-row" style="margin-bottom:16px;"><a href="/" class="btn btn-secondary">← Назад на главную</a></div>
+  <div class="card page-header"><h1>Редактирование расписания</h1><p class="muted">Настройка расписания с точностью до 5 минут. Scheduler отправляет задачу каждые 5 минут. Активность автоматической отправки задаётся через Use Timer; фактический адрес берётся из JSON-профиля каждого выбранного инвертора.</p><p><strong>Безопасные пределы для выбранной группы:</strong> мощность разряда до {{.SchedulePowerMaxW}} W, экспорт до {{.GridExportMaxW}} W. При выборе нескольких моделей применяется наименьший предел.</p><div class="inverters-box">{{range .Inverters}}<div class="inv-chip"><strong>{{.Name}}</strong> | {{.IP}}:{{.Port}}<br><small>{{.ModelName}} · <code>{{.ModelKey}}</code></small></div>{{end}}</div></div>
+  <div class="card">
+    <h2>Параметры расписания</h2>
+    <div class="field"><label for="scheduleName">Название расписания</label><input id="scheduleName" value="{{.ScheduleName}}"></div>
+    <div class="field"><label for="templateSelect">Шаблон расписания</label><select id="templateSelect"><option value="">-- выбрать шаблон --</option>{{range .Templates}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+    <div class="button-row" style="margin-bottom:16px;"><button class="btn btn-secondary" type="button" id="applyTemplateBtn">Применить шаблон</button><button class="btn btn-secondary" type="button" id="uploadTemplateBtn">Загрузить шаблон</button><input type="file" id="uploadTemplateFile" class="hidden" accept=".xlsx"><button class="btn btn-secondary" type="button" id="saveTemplateBtn">Сохранить как шаблон</button><button class="btn btn-warning" type="button" id="sendScheduleNowBtn">Сохранить и отправить сейчас</button><button class="btn btn-secondary" type="button" id="previewScheduleRegistersBtn">Показать регистры</button><button class="btn btn-secondary" type="button" id="clearEmptySlotsBtn">Очистить пустые слоты</button><button class="btn btn-danger" type="button" id="clearAllFiveMinuteSlotsBtn">Удалить все 5-минутные</button><a class="btn btn-secondary" href="/schedules/export?ids={{.SelectedIDsCSV}}">Скачать XLSX для редактирования</a></div>
+    <input type="hidden" id="viewMode" value="grid">
+    <input type="hidden" id="selectedIDs" value="{{.SelectedIDsCSV}}">
+    <input type="hidden" id="editingTemplateId" value="">
+    <textarea id="scheduleJSON" class="hidden">{{.ScheduleJSON}}</textarea>
+    <div id="sendPreviewPanel" class="send-preview-panel"></div>
+    <div id="registerPreviewPanel" class="send-preview-panel register-preview-panel hidden"></div>
+    <div id="useTimerMaskPanel"></div>
+    <div id="gridView" class="day-grid"></div>
+    <div class="button-row" style="margin-top:18px;"><button class="btn btn-primary" type="button" id="saveScheduleBtn">Сохранить расписание</button></div>
+  </div>
+</div>
+<div id="dayModal" class="modal"><div class="modal-content"><div class="button-row" style="justify-content:space-between;align-items:center;"><h3 id="modalDayTitle">День</h3><button class="btn btn-secondary" id="modalCloseBtn" type="button">Закрыть</button></div><div id="modalDayEditor"></div></div></div>
+<script>window.chargeModeOptions = {{.ChargeModeOptionsJSON}}; window.schedulePowerMaxW = {{.SchedulePowerMaxW}}; window.gridExportMaxW = {{.GridExportMaxW}};</script>
+<script src="/static/js/common.js?v=20260525d"></script>
+<script src="/static/js/schedule_editor.js?v=20260706a"></script>
+<script src="/static/js/schedules-page.js?v=20260706a"></script>
+</body>
+</html>

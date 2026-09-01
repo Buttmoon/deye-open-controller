@@ -1,0 +1,8 @@
+/inverter-schedule
+/root@*
+/data/*.db
+/data/*.db-*
+/data/*.log
+/data/inverter_logs/
+*.bak.*
+*.md
