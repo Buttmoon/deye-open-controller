@@ -6,4 +6,5 @@
 /data/inverter_logs/
 *.bak.*
 *.md
-/vendor
+vendor/
+.idea/
