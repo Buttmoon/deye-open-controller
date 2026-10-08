@@ -49,3 +49,21 @@ var apiDocumentationMD []byte
 
 //go:embed templates/pages/log_delivery.html
 var tmplLogDeliveryHTML []byte
+
+//go:embed templates/pages/history.html
+var tmplHistoryHTML []byte
+
+//go:embed templates/pages/register_test.html
+var tmplRegisterTestHTML []byte
+
+//go:embed templates/pages/status.html
+var tmplStatusHTML []byte
+
+//go:embed templates/pages/simple_schedule.html
+var tmplSimpleScheduleHTML []byte
+
+//go:embed templates/pages/schedule_templates.html
+var tmplScheduleTemplatesHTML []byte
+
+//go:embed inverter-user-guide.html
+var userGuideHTML []byte

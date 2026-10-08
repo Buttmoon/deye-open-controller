@@ -127,6 +127,7 @@ type MainPageData struct {
 	HasNext                bool
 	PrevPage               int
 	NextPage               int
+	GridPeakEnabled        bool
 }
 
 type SettingsPageData struct {
@@ -295,8 +296,15 @@ type ImportedTemplateResult struct {
 }
 
 type TaskLogPageData struct {
-	Title string
-	Logs  []TaskRunLog
+	Title    string
+	Logs     []TaskRunLog
+	Query    string
+	Page     int
+	PerPage  int
+	Total    int
+	Pages    int
+	PrevPage int
+	NextPage int
 }
 
 type TaskRunLog struct {
@@ -310,6 +318,7 @@ type TaskRunLog struct {
 	Status          string
 	Message         string
 	PayloadJSON     string
+	PayloadBytes    int
 }
 
 type AppLogsPageData struct {

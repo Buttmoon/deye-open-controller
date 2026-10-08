@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="page-title">
+      <div>
+        <h1>История заданий и изменений</h1>
+        <p class="muted mb-0">Создание и изменение заданий, назначение и выполнение расписаний, записи регистров с контрольным чтением, изменения настроек и профилей. Статус «Подтверждено чтением» ставится только после реального чтения регистра.</p>
+      </div>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" id="exportCsv">Экспорт CSV</button>
+        <button type="button" class="btn btn-secondary" id="exportXlsx">Экспорт XLSX</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <form id="historyFilters" class="filters" autocomplete="off">
+      <div class="field"><label for="fFrom">С даты</label><input type="date" id="fFrom" name="from"></div>
+      <div class="field"><label for="fTo">По дату</label><input type="date" id="fTo" name="to"></div>
+      <div class="field"><label for="fInverter">Инвертор</label>
+        <select id="fInverter" name="inverter_id"><option value="">Все</option>{{range .Inverters}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+      <div class="field"><label for="fType">Тип операции</label>
+        <select id="fType" name="type"><option value="">Все</option>{{range $k, $v := .Types}}<option value="{{$k}}">{{$v}}</option>{{end}}</select></div>
+      <div class="field"><label for="fStatus">Статус</label>
+        <select id="fStatus" name="status"><option value="">Все</option>{{range $k, $v := .Statuses}}<option value="{{$k}}">{{$v}}</option>{{end}}</select></div>
+      <div class="field"><label for="fRegister">Регистр</label><input type="text" id="fRegister" name="register" placeholder="146 или 0x92"></div>
+      <div class="field"><label for="fQuery">Поиск</label><input type="search" id="fQuery" name="q" placeholder="сообщение, код, ID операции"></div>
+      <div class="field"><label class="check"><input type="checkbox" id="fTop" name="top" value="1" checked> Только верхний уровень</label><small>Записи регистров внутри выполнения расписания раскрываются по клику.</small></div>
+      <div class="field"><button type="reset" class="btn btn-secondary" id="resetFilters">Сбросить фильтры</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="row between"><span class="muted" id="historyCount">Загрузка…</span><span class="muted small">Время показано в часовом поясе браузера</span></div>
+    <div class="table-scroll" style="margin-top:10px">
+      <table class="data-table">
+        <thead><tr><th>Время</th><th>Операция</th><th>Статус</th><th>Инвертор</th><th>Регистр</th><th>Было</th><th>Запрошено</th><th>Прочитано</th><th>Инициатор</th><th>Длит.</th><th>Сообщение</th></tr></thead>
+        <tbody id="historyRows"><tr><td colspan="11"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></td></tr></tbody>
+      </table>
+    </div>
+    <div class="pager" id="historyPager"></div>
+  </div>
+</div>
+<script src="/static/js/common.js?v=20261008"></script>
+<script src="/static/js/history.js?v=20261008"></script>
+</body>
+</html>

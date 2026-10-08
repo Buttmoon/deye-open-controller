@@ -12,6 +12,10 @@ import (
 const dbPath = "data/app.db"
 
 func InitSQLite() (*sql.DB, error) {
+	return InitSQLiteAt(dbPath)
+}
+
+func InitSQLiteAt(dbPath string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create data directory: %w", err)
 	}
@@ -55,6 +59,9 @@ func InitSQLite() (*sql.DB, error) {
 	if err := ensureInverterProfileWriteConfirmationColumn(db); err != nil {
 		return nil, err
 	}
+	if err := ensureInverterGridPeakStateColumns(db); err != nil {
+		return nil, err
+	}
 	if err := ensureLogDeliveryPeriodColumns(db); err != nil {
 		return nil, err
 	}
@@ -78,7 +85,140 @@ func InitSQLite() (*sql.DB, error) {
 		return nil, err
 	}
 
+	if err := createExtendedTables(db); err != nil {
+		return nil, err
+	}
+	if err := ensureSimpleTemplateColumns(db); err != nil {
+		return nil, err
+	}
+
 	return db, nil
+}
+
+// createExtendedTables adds the tables introduced by the modernization release.
+// Every statement is idempotent (IF NOT EXISTS) and never touches existing rows,
+// so upgrading an existing database is non-destructive.
+func createExtendedTables(db *sql.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS app_kv (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS operation_history (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			ts_utc TEXT NOT NULL,
+			operation_id TEXT NOT NULL DEFAULT '',
+			parent_id TEXT NOT NULL DEFAULT '',
+			operation_type TEXT NOT NULL,
+			status TEXT NOT NULL,
+			inverter_id INTEGER,
+			inverter_name TEXT NOT NULL DEFAULT '',
+			endpoint TEXT NOT NULL DEFAULT '',
+			initiator TEXT NOT NULL DEFAULT '',
+			job_ref TEXT NOT NULL DEFAULT '',
+			register_address INTEGER,
+			register_code TEXT NOT NULL DEFAULT '',
+			previous_value INTEGER,
+			requested_value INTEGER,
+			written_value INTEGER,
+			verified_value INTEGER,
+			attempt INTEGER NOT NULL DEFAULT 0,
+			duration_ms INTEGER NOT NULL DEFAULT 0,
+			message TEXT NOT NULL DEFAULT '',
+			error TEXT NOT NULL DEFAULT '',
+			details_json TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_ts ON operation_history(ts_utc);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_inverter_ts ON operation_history(inverter_id, ts_utc);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_type ON operation_history(operation_type);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_status ON operation_history(status);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_register ON operation_history(register_address);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_operation ON operation_history(operation_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_history_parent ON operation_history(parent_id);`,
+		`CREATE TABLE IF NOT EXISTS register_observations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			ts_utc TEXT NOT NULL,
+			inverter_id INTEGER,
+			model_key TEXT NOT NULL DEFAULT '',
+			register_address INTEGER NOT NULL,
+			register_code TEXT NOT NULL DEFAULT '',
+			raw_value INTEGER NOT NULL,
+			kind TEXT NOT NULL,
+			operation_id TEXT NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_reg_obs_model_addr ON register_observations(model_key, register_address);`,
+		`CREATE TABLE IF NOT EXISTS register_profile_changes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			ts_utc TEXT NOT NULL,
+			model_key TEXT NOT NULL DEFAULT '',
+			profile_file TEXT NOT NULL DEFAULT '',
+			register_code TEXT NOT NULL DEFAULT '',
+			register_address INTEGER,
+			action TEXT NOT NULL DEFAULT '',
+			before_json TEXT NOT NULL DEFAULT '',
+			after_json TEXT NOT NULL DEFAULT '',
+			backup_file TEXT NOT NULL DEFAULT '',
+			initiator TEXT NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_reg_profile_changes_model ON register_profile_changes(model_key, ts_utc);`,
+		`CREATE TABLE IF NOT EXISTS inverter_status_cache (
+			inverter_id INTEGER PRIMARY KEY,
+			snapshot_json TEXT NOT NULL DEFAULT '',
+			last_success_utc TEXT NOT NULL DEFAULT '',
+			last_attempt_utc TEXT NOT NULL DEFAULT '',
+			consecutive_failures INTEGER NOT NULL DEFAULT 0,
+			last_error TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE TABLE IF NOT EXISTS simple_templates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			description TEXT NOT NULL DEFAULT '',
+			rules_json TEXT NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			version INTEGER NOT NULL DEFAULT 1,
+			tags_json TEXT NOT NULL DEFAULT '[]',
+			model_keys_json TEXT NOT NULL DEFAULT '[]',
+			last_applied_inverter_id INTEGER,
+			last_applied_utc TEXT NOT NULL DEFAULT '',
+			last_applied_status TEXT NOT NULL DEFAULT ''
+		);`,
+		`CREATE TABLE IF NOT EXISTS simple_template_versions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			template_id INTEGER NOT NULL,
+			version INTEGER NOT NULL,
+			ts_utc TEXT NOT NULL,
+			author TEXT NOT NULL DEFAULT '',
+			summary TEXT NOT NULL DEFAULT '',
+			name TEXT NOT NULL DEFAULT '',
+			description TEXT NOT NULL DEFAULT '',
+			rules_json TEXT NOT NULL,
+			tags_json TEXT NOT NULL DEFAULT '[]',
+			model_keys_json TEXT NOT NULL DEFAULT '[]',
+			UNIQUE(template_id, version),
+			FOREIGN KEY (template_id) REFERENCES simple_templates(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_simple_tpl_versions_tpl ON simple_template_versions(template_id, version);`,
+		`CREATE TABLE IF NOT EXISTS schedule_recurrences (
+			inverter_id INTEGER PRIMARY KEY,
+			rules_json TEXT NOT NULL,
+			auto_renew INTEGER NOT NULL DEFAULT 0,
+			last_generated_month TEXT NOT NULL DEFAULT '',
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (inverter_id) REFERENCES inverters(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_task_runs_template ON task_runs(template_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);`,
+	}
+	for _, stmt := range statements {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("failed to apply extended schema: %w", err)
+		}
+	}
+	return nil
 }
 
 func createTables(db *sql.DB) error {
@@ -90,6 +230,8 @@ func createTables(db *sql.DB) error {
 		port INTEGER NOT NULL DEFAULT 8899,
 		model_key TEXT NOT NULL DEFAULT 'deye_hybrid_60kw_legacy',
 		profile_write_confirmed INTEGER NOT NULL DEFAULT 0,
+		grid_peak_shaving_power INTEGER,
+		grid_peak_shaving_enabled INTEGER,
 		UNIQUE(ip, port)
 	);
 	`
@@ -449,6 +591,82 @@ func ensureInverterProfileWriteConfirmationColumn(db *sql.DB) error {
 	// Исторический профиль не требует подтверждения; для остальных подтверждение даётся пользователем явно.
 	_, err = db.Exec(`UPDATE inverters SET profile_write_confirmed = 1 WHERE model_key = 'deye_hybrid_60kw_legacy';`)
 	return err
+}
+
+func ensureSimpleTemplateColumns(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(simple_templates);`)
+	if err != nil {
+		// Table may not exist yet on brand-new DBs before createExtendedTables; ignore.
+		return nil
+	}
+	existing := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var defaultValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			rows.Close()
+			return err
+		}
+		existing[name] = true
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	alters := []struct {
+		col string
+		sql string
+	}{
+		{"version", `ALTER TABLE simple_templates ADD COLUMN version INTEGER NOT NULL DEFAULT 1;`},
+		{"tags_json", `ALTER TABLE simple_templates ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';`},
+		{"model_keys_json", `ALTER TABLE simple_templates ADD COLUMN model_keys_json TEXT NOT NULL DEFAULT '[]';`},
+		{"last_applied_inverter_id", `ALTER TABLE simple_templates ADD COLUMN last_applied_inverter_id INTEGER;`},
+		{"last_applied_utc", `ALTER TABLE simple_templates ADD COLUMN last_applied_utc TEXT NOT NULL DEFAULT '';`},
+		{"last_applied_status", `ALTER TABLE simple_templates ADD COLUMN last_applied_status TEXT NOT NULL DEFAULT '';`},
+	}
+	for _, a := range alters {
+		if existing[a.col] {
+			continue
+		}
+		if _, err := db.Exec(a.sql); err != nil {
+			return fmt.Errorf("failed to add simple_templates.%s: %w", a.col, err)
+		}
+	}
+	return nil
+}
+
+func ensureInverterGridPeakStateColumns(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(inverters);`)
+	if err != nil {
+		return fmt.Errorf("failed to inspect inverters table for Grid Peak Shaving state: %w", err)
+	}
+	existing := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var defaultValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			rows.Close()
+			return err
+		}
+		existing[name] = true
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, column := range []string{"grid_peak_shaving_power", "grid_peak_shaving_enabled"} {
+		if existing[column] {
+			continue
+		}
+		if _, err := db.Exec(`ALTER TABLE inverters ADD COLUMN ` + column + ` INTEGER;`); err != nil {
+			return fmt.Errorf("failed to add inverters.%s: %w", column, err)
+		}
+	}
+	return nil
 }
 
 func ensureLogDeliveryPeriodColumns(db *sql.DB) error {

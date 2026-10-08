@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="page-title">
+      <div>
+        <h1>Тестирование регистров</h1>
+        <p class="muted mb-0">Поиск регистров по профилю, чтение raw-значений с расшифровкой, безопасная запись с предпросмотром и контрольным чтением, журнал наблюдений и исправление метаданных профиля с резервной копией. Никакие значения не перебираются автоматически.</p>
+      </div>
+    </div>
+    <div class="filters" style="margin-top:12px">
+      <div class="field"><label for="rtInverter">Инвертор</label>
+        <select id="rtInverter">
+          <option value="">— только просмотр профиля —</option>
+          {{range .Inverters}}<option value="{{.ID}}" data-model="{{.ModelKey}}">{{.Name}} ({{.Endpoint}})</option>{{end}}
+        </select></div>
+      <div class="field"><label for="rtModel">Профиль модели</label>
+        <select id="rtModel">{{range .Models}}<option value="{{.Key}}">{{.Name}}</option>{{end}}</select></div>
+      <div class="field"><label>Запись со страницы</label>
+        <div>{{if .WritesEnabled}}<span class="badge badge-warn">разрешена (с подтверждением)</span>{{else}}<span class="badge badge-muted">отключена</span> <a class="small" href="/settings#features">включить</a>{{end}}</div></div>
+      <div class="field"><label>Ограничение мощности</label>
+        <div>{{if .GridPeak}}<span class="badge badge-info">функция включена</span>{{else}}<span class="badge badge-muted">выключена — регистры 178/191 заблокированы</span>{{end}}</div></div>
+    </div>
+    <div id="rtProfileIssues"></div>
+  </div>
+
+  <div class="tabbar" role="tablist">
+    <button type="button" class="active" data-tab="tabSearch">Поиск и чтение</button>
+    <button type="button" data-tab="tabRaw">Чтение по адресу</button>
+    <button type="button" data-tab="tabObs">Исследование значений</button>
+    <button type="button" data-tab="tabProfiles">Профили</button>
+  </div>
+
+  <section class="tabpanel active" id="tabSearch">
+    <div class="grid-2" style="align-items:start">
+      <div class="card">
+        <div class="field"><label for="rtSearch">Поиск по адресу, коду, названию</label>
+          <input type="search" id="rtSearch" placeholder="146, 0x92, use_timer, grid peak…" autocomplete="off"></div>
+        <label class="check small"><input type="checkbox" id="rtWritableOnly"> только записываемые</label>
+        <div class="small muted" id="rtCount" style="margin:6px 0"></div>
+        <div class="table-scroll" style="max-height:62vh">
+          <table class="data-table"><thead><tr><th>Адрес</th><th>Код / название</th><th>Тип</th><th>Доступ</th><th>Достоверность</th></tr></thead>
+            <tbody id="rtList"></tbody></table>
+        </div>
+      </div>
+      <div class="card" id="rtDetail"><div class="empty">Выберите регистр в списке слева.</div></div>
+    </div>
+  </section>
+
+  <section class="tabpanel" id="tabRaw">
+    <div class="card">
+      <p class="muted small">Чтение безопасно: выполняется только функция чтения Modbus. Результат сохраняется в журнал наблюдений и историю.</p>
+      <div class="filters">
+        <div class="field"><label for="rawAddr">Начальный адрес</label><input type="text" id="rawAddr" placeholder="например 146 или 0x92"></div>
+        <div class="field"><label for="rawCount">Количество (1–125)</label><input type="number" id="rawCount" min="1" max="125" value="1"></div>
+        <div class="field"><label for="rawType">Тип регистров</label><select id="rawType"><option value="holding">holding (FC03)</option><option value="input">input (FC04)</option></select></div>
+        <div class="field"><button type="button" class="btn btn-primary" id="rawRead">Прочитать</button></div>
+      </div>
+      <div id="rawResult"></div>
+    </div>
+  </section>
+
+  <section class="tabpanel" id="tabObs">
+    <div class="card">
+      <p class="muted small">Здесь собираются значения, которые были прочитаны, записаны и подтверждены или отклонены инвертором. Система показывает противоречия с профилем и оценку достоверности, но не подбирает значения сама: каждое новое значение вы проверяете вручную на вкладке «Поиск и чтение».</p>
+      <div class="filters">
+        <div class="field"><label for="obsAddr">Адрес регистра</label><input type="text" id="obsAddr" placeholder="например 191"></div>
+        <div class="field"><button type="button" class="btn btn-primary" id="obsLoad">Показать</button></div>
+      </div>
+      <div id="obsResult"></div>
+      <details class="plain" style="margin-top:12px"><summary>Добавить наблюдение вручную (например, из документации или проверки на стенде)</summary>
+        <div class="filters" style="margin-top:8px">
+          <div class="field"><label for="obsRaw">Raw-значение</label><input type="number" id="obsRaw" min="0" max="65535"></div>
+          <div class="field"><label for="obsKind">Вывод</label><select id="obsKind"><option value="accepted">Принимается инвертором</option><option value="rejected">Отклоняется инвертором</option><option value="note">Заметка</option></select></div>
+          <div class="field" style="flex:2"><label for="obsNote">Комментарий</label><input type="text" id="obsNote" placeholder="источник, условия проверки"></div>
+          <div class="field"><button type="button" class="btn btn-secondary" id="obsAdd">Сохранить</button></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="tabpanel" id="tabProfiles">
+    <div class="card">
+      <h2>Профили регистров</h2>
+      <p class="muted small">Структурная проверка нужна для чтения и установки профиля. Проверка безопасности записи — отдельная: если она не пройдена, профиль всё равно устанавливается и доступен для чтения, а запись расписаний для этой модели блокируется.</p>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Модель</th><th>Файл</th><th>Параметров</th><th>Структура</th><th>Проверка записи</th><th>Статус</th><th></th></tr></thead><tbody id="profilesRows"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>Установить профиль из файла</h2>
+      <form id="installForm" class="filters">
+        <div class="field"><label for="installModel">Модель</label><select id="installModel" name="model_key">{{range .Models}}<option value="{{.Key}}">{{.Name}}</option>{{end}}</select></div>
+        <div class="field"><label for="installFile">JSON-файл профиля</label><input type="file" id="installFile" name="file" accept=".json,application/json" required></div>
+        <div class="field" style="flex:2"><label for="installNote">Комментарий</label><input type="text" id="installNote" name="note"></div>
+        <div class="field"><button type="submit" class="btn btn-primary">Проверить и установить</button></div>
+      </form>
+      <div id="installResult"></div>
+    </div>
+    <div class="card">
+      <h2>Журнал изменений метаданных</h2>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Время</th><th>Модель</th><th>Регистр</th><th>Действие</th><th>Комментарий</th><th>Резервная копия</th><th></th></tr></thead><tbody id="changesRows"></tbody></table></div>
+    </div>
+  </section>
+</div>
+<script id="rtConfig" type="application/json">{"writesEnabled": {{.WritesEnabled}}, "gridPeak": {{.GridPeak}}}</script>
+<script src="/static/js/common.js?v=20261008"></script>
+<script src="/static/js/registers.js?v=20261008"></script>
+</body>
+</html>

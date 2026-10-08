@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/css/common.css?v=20260706b">
-  <link rel="stylesheet" href="/static/css/main.css?v=20260706b">
+  <link rel="stylesheet" href="/static/css/main.css?v=20260901a">
 </head>
 <body>
 <div id="popup" class="popup"></div>
@@ -74,6 +74,48 @@
       <span class="chip">Время инвертора в логе: {{if .Dashboard.LatestInverterTimestamp}}{{.Dashboard.LatestInverterTimestamp}}{{else}}—{{end}}</span>
     </div>
 
+    {{if .GridPeakEnabled}}
+    <section class="power-limit-control" id="powerLimitControl" aria-labelledby="powerLimitTitle">
+      <div class="power-limit-summary">
+        <div>
+          <div class="power-limit-eyebrow">Grid Peak Shaving</div>
+          <h3 id="powerLimitTitle">Ограничение мощности</h3>
+          <p>Ограничивает мощность, забираемую из сети: нагрузку выше заданного лимита инвертор компенсирует от батареи.</p>
+        </div>
+        <div class="power-limit-current">
+          <span>Текущее ограничение</span>
+          <strong id="powerLimitCurrentValue">—</strong>
+          <small id="powerLimitTarget">Читаю первое сохранённое значение…</small>
+        </div>
+      </div>
+
+      <div class="power-limit-controls">
+        <div class="power-limit-state-block">
+          <span>Состояние функции</span>
+          <div class="power-limit-state-line">
+            <span class="lcd-state lcd-state-off" id="powerLimitState">Неизвестно</span>
+            <button type="button" class="btn btn-secondary" id="powerLimitToggleBtn" disabled>Включить</button>
+          </div>
+          <small>Переключатель меняет только биты 4–5 регистра 178, остальные настройки сохраняются.</small>
+        </div>
+
+        <form class="power-limit-form" id="powerLimitForm">
+          <label for="powerLimitInput">Новое ограничение, Вт</label>
+          <div class="power-limit-input-row">
+            <input type="number" id="powerLimitInput" min="0" step="10" placeholder="Например, 8000" disabled required>
+            <button type="submit" class="btn btn-primary" id="powerLimitApplyBtn" disabled>Применить</button>
+          </div>
+          <small id="powerLimitRange">Значение записывается в регистр 191 с шагом 10 Вт.</small>
+        </form>
+      </div>
+
+      <div class="power-limit-footer">
+        <span class="muted" id="powerLimitStatus">Получаю первое значение из файла лога…</span>
+        <button type="button" class="btn btn-secondary" id="powerLimitRefreshBtn">Обновить с инвертора</button>
+      </div>
+    </section>
+    {{end}}
+
     <details class="inverter-screen-details" id="inverterScreenDetails">
       <summary>
         <span>Визуализация экрана инвертора</span>
@@ -83,7 +125,7 @@
         <div class="screen-toolbar">
           <div>
             <h3>Текущее расписание на экране инвертора</h3>
-            <p class="muted">Запрос к инвертору выполняется только при открытии блока или по кнопке обновления.</p>
+            <p class="muted">Значения обновляются вместе с карточкой ограничения мощности или по кнопке ниже.</p>
           </div>
           <button type="button" class="btn btn-primary" id="refreshInverterScreenBtn">Обновить значения</button>
         </div>
@@ -225,7 +267,7 @@
                   <div class="field"><label>Имя</label><input type="text" name="name" value="{{.Name}}"></div>
                   <div class="field"><label>Тип инвертора</label><select name="model_key" required>{{$inv := .}}{{range $.InverterModels}}<option value="{{.Key}}" {{if eq .Key $inv.ModelKey}}selected{{end}}>{{.Name}} · {{.ModelCode}}{{if .WriteRequiresConfirm}} · требует проверки{{end}}</option>{{end}}</select></div>
                   <label class="checkbox-line"><input type="checkbox" name="profile_write_confirmed" value="1" {{if .ProfileWriteConfirmed}}checked{{end}}> Я выполнил read-only сверку карты регистров и разрешаю запись выбранного профиля</label>
-                  {{if and .WriteRequiresConfirm (not .ProfileWriteConfirmed)}}<div class="alert alert-warning">Запись расписания и ручные Modbus-команды заблокированы до подтверждения профиля.</div>{{end}}
+                  {{if and .WriteRequiresConfirm (not .ProfileWriteConfirmed)}}<span class="badge badge-warn" title="Чтение и мониторинг работают. Запись расписаний и ручные команды станут доступны после подтверждения профиля.">профиль не подтверждён — запись выключена</span>{{end}}
                   <button type="submit" class="btn btn-secondary">Сохранить тип инвертора</button>
                 </form>
               </details>
@@ -349,6 +391,6 @@
   </section>
 </div>
 <script src="/static/js/common.js?v=20260525a"></script>
-<script src="/static/js/main.js?v=20260525a"></script>
+<script src="/static/js/main.js?v=20260901a"></script>
 </body>
 </html>

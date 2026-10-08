@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css?v=20260703c">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008d">
+</head>
+<body>
+<div id="popup" class="popup"></div>
+<div class="container simple-schedule-page">
+  <div class="card page-header">
+    <div class="page-title">
+      <div>
+        <h1>Расписание: упрощённый режим</h1>
+        <p class="muted">Интервалы с параметрами заряд сети, ограничение нагрузки и приоритет. XLSX-шаблоны совместимы с <a href="/schedules{{if .HasInverter}}?ids={{.InverterID}}{{end}}">расширенным режимом</a>. Сохранение страницы не пишет в инвертор — запись выполняет планировщик.</p>
+        {{if .HasInverter}}
+        <p class="small"><strong>Мощность и лимит экспорта:</strong> до {{.SchedulePowerMaxW}} Вт и {{.GridExportMaxW}} Вт, шаг 10 Вт.</p>
+        {{else}}
+        <p class="small" style="color:var(--warning)">Инвертор не настроен. Добавьте устройство на главной странице.</p>
+        {{end}}
+      </div>
+      <div class="row"><a class="btn btn-secondary" href="/schedules{{if .HasInverter}}?ids={{.InverterID}}{{end}}">Расширенный режим</a></div>
+    </div>
+    {{if .HasInverter}}
+    <div class="inverters-box">
+      <div class="inv-chip"><strong>{{.InverterName}}</strong> | {{.InverterEndpoint}}<br><small>{{.InverterModelName}} · <code>{{.InverterModelKey}}</code></small></div>
+    </div>
+    {{end}}
+    {{if not .SimpleEnabled}}<div class="notice notice-info small" style="margin-top:12px">Упрощённый режим скрыт из меню настройкой «Функции». Страница доступна по прямой ссылке.</div>{{end}}
+  </div>
+
+  <!-- 1. Шаблоны XLSX -->
+  <div class="card">
+    <h2>1. Шаблоны XLSX</h2>
+    <p class="muted small">Тот же формат, что в расширенном редакторе: Day, Hour/Time, SellModeKW, ChargeMode, GridChargeEnabled, LoadLimitMode, PriorityLoad и колонки Use Timer.</p>
+    <div class="field"><label for="ssTemplateSelect">Шаблон расписания</label>
+      <select id="ssTemplateSelect"><option value="">-- выбрать шаблон --</option>{{range .Templates}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+    <div class="button-row">
+      <button class="btn btn-secondary" type="button" id="ssUploadTemplateBtn">Загрузить шаблон</button>
+      <input type="file" id="ssUploadTemplateFile" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <button class="btn btn-secondary" type="button" id="ssDownloadXlsxBtn">Скачать шаблон</button>
+      <button class="btn btn-secondary" type="button" id="ssSaveTemplateBtn">Сохранить как шаблон</button>
+      <button class="btn btn-primary" type="button" id="ssApplyTemplateBtn">Применить шаблон</button>
+      <a class="btn btn-secondary" href="/templates/import/example.xlsx">Скачать пример XLSX</a>
+      {{if .ExportURL}}<a class="btn btn-secondary" href="{{.ExportURL}}">Скачать сохранённое расписание</a>{{end}}
+    </div>
+    <div id="ssTemplateMsg" style="margin-top:12px"></div>
+    <div id="ssAdvancedWarn" class="notice notice-warn small hidden" style="margin-top:10px"></div>
+  </div>
+
+  <!-- 2. Период -->
+  <div class="card">
+    <h2>2. Период расписания</h2>
+    <div class="filters" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+      <div class="field"><label for="ssMonth">Месяц</label><input type="month" id="ssMonth" value="{{.DefaultMonth}}"></div>
+      <div class="field"><label for="ssName">Название расписания</label><input type="text" id="ssName" value="Упрощённое расписание"></div>
+      <div class="field"><label for="ssDateFrom">Действует с (необязательно)</label><input type="date" id="ssDateFrom"></div>
+      <div class="field"><label for="ssDateTo">по (необязательно)</label><input type="date" id="ssDateTo"></div>
+    </div>
+    <div class="field"><label>Дни недели (не выбрано — каждый день)</label>
+      <div class="weekday-picker" id="ssWeekdays">
+        <label><input type="checkbox" data-wd="1"><span>Пн</span></label>
+        <label><input type="checkbox" data-wd="2"><span>Вт</span></label>
+        <label><input type="checkbox" data-wd="3"><span>Ср</span></label>
+        <label><input type="checkbox" data-wd="4"><span>Чт</span></label>
+        <label><input type="checkbox" data-wd="5"><span>Пт</span></label>
+        <label><input type="checkbox" data-wd="6"><span>Сб</span></label>
+        <label><input type="checkbox" data-wd="7"><span>Вс</span></label>
+      </div></div>
+    <div class="field"><label>Что делать с текущим расписанием</label>
+      <label class="check"><input type="radio" name="ssBase" value="merge" checked> Дополнить: часы вне интервалов сохраняются</label>
+      <label class="check"><input type="radio" name="ssBase" value="replace"> Заменить: часы вне интервалов выключаются</label>
+    </div>
+    <label class="check"><input type="checkbox" id="ssAutoRenew"> Повторять ежемесячно (если не правили вручную в расширенном режиме)</label>
+    <div id="ssExisting" style="margin-top:12px"></div>
+  </div>
+
+  <!-- 3. Параметры работы (defaults for new intervals + mode help) -->
+  <div class="card">
+    <h2>3. Параметры работы</h2>
+    <p class="muted small">Значения по умолчанию для новых интервалов. У каждого интервала ниже можно задать свои параметры.</p>
+    <div class="filters" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      <div class="field"><label for="ssDefGrid">Заряд от сети <span class="hint" title="Регистр 130">ⓘ</span></label>
+        <select id="ssDefGrid"><option value="0">Выкл</option><option value="1">Вкл</option></select></div>
+      <div class="field"><label for="ssDefLL">Ограничение нагрузки <span class="hint" title="Регистр 142 — режим, не ватты">ⓘ</span></label>
+        <select id="ssDefLL">
+          <option value="0">Selling first</option>
+          <option value="1">Zero export load</option>
+          <option value="2">Zero export CT</option>
+        </select></div>
+      <div class="field"><label for="ssDefPL">Приоритет нагрузки <span class="hint" title="Регистр 141">ⓘ</span></label>
+        <select id="ssDefPL">
+          <option value="0">Приоритет нагрузки (Load First)</option>
+          <option value="1">Приоритет батареи (Battery First)</option>
+        </select></div>
+      <div class="field"><label for="ssDefPower">Мощность TOU, Вт</label><input type="number" id="ssDefPower" min="0" step="10" value="0"></div>
+      <div class="field"><label for="ssDefSOC">SOC батареи, %</label><input type="number" id="ssDefSOC" min="0" max="100" value="20"></div>
+    </div>
+    <div id="ssLimits" class="small muted"></div>
+  </div>
+
+  <!-- 4. Интервалы -->
+  <div class="card">
+    <div class="row between">
+      <h2 class="mt-0 mb-0">4. Временные интервалы</h2>
+      <div class="row">
+        <button type="button" class="btn btn-primary btn-sm" id="ssAddInterval">+ Добавить интервал</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="ssMergeAdj">Объединить одинаковые</button>
+      </div>
+    </div>
+    <p class="small muted">Время 24 ч, интервалы через полночь допустимы (например 18:00–00:00). Число логических интервалов не ограничено; у инвертора 6 аппаратных программ TOU — при превышении будет предупреждение.</p>
+    <div id="ssTimelineLocal" class="day-timeline"></div>
+    <div class="table-wrap" style="overflow:auto;margin-top:12px">
+      <table class="data-table interval-table" id="ssIntervalTable" style="display:none;width:100%">
+        <thead>
+          <tr>
+            <th>#</th><th>Подпись</th><th>Начало</th><th>Конец</th>
+            <th>Заряд от сети</th><th>Ограничение нагрузки</th><th>Приоритет</th>
+            <th>Мощность, Вт</th><th>SOC, %</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="ssIntervals"></tbody>
+      </table>
+    </div>
+    <div id="ssIntervalEmpty" class="empty">Интервалов нет. Нажмите «Добавить интервал» или загрузите XLSX-шаблон.</div>
+  </div>
+
+  <!-- 5. Предпросмотр -->
+  <div class="card">
+    <div class="row between">
+      <h2 class="mt-0 mb-0">5. Предпросмотр расписания</h2>
+      <div class="row">
+        <button type="button" class="btn btn-secondary btn-sm" data-view="timeline">Шкала</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-view="calendar">Календарь</button>
+      </div>
+    </div>
+    <p class="small muted">Показаны значения, которые будут сохранены в приложении. На инвертор они попадут только при выполнении планировщика.</p>
+    <div id="ssDescriptions" class="small" style="margin:8px 0"></div>
+    <div id="ssMessages"></div>
+    <div id="ssViz"><div class="empty">Добавьте интервалы — предпросмотр обновится автоматически.</div></div>
+  </div>
+
+  <!-- 6. Сохранение -->
+  <div class="card">
+    <h2>6. Сохранение</h2>
+    <div id="ssDirty" class="notice notice-warn small hidden">Есть несохранённые изменения</div>
+    <div class="button-row">
+      <button class="btn btn-primary" type="button" id="ssApply" {{if not .HasInverter}}disabled{{end}}>Сохранить расписание</button>
+      <button class="btn btn-warning" type="button" id="ssApplyNow" {{if not .HasInverter}}disabled{{end}}>Сохранить и отправить сейчас</button>
+      <button class="btn btn-secondary" type="button" id="ssReset">Сбросить изменения</button>
+      <button class="btn btn-secondary" type="button" id="ssReloadCurrent">Загрузить текущее расписание</button>
+    </div>
+    <p class="small muted mb-0">«Сохранить как шаблон» и «Сохранить расписание» не обращаются к Modbus. «Отправить сейчас» запускает планировщик с контрольным чтением.</p>
+  </div>
+</div>
+
+<input type="hidden" id="ssInverterID" value="{{.InverterID}}">
+<input type="hidden" id="ssModelKey" value="{{.InverterModelKey}}">
+<input type="hidden" id="ssPreservedJSON" value="">
+<script id="ssModels" type="application/json">{{.ModelsJSON}}</script>
+<script id="ssChargeModes" type="application/json">{{.ChargeModesJSON}}</script>
+<script>window.schedulePowerMaxW = {{.SchedulePowerMaxW}}; window.gridExportMaxW = {{.GridExportMaxW}};</script>
+<script src="/static/js/common.js?v=20261008d"></script>
+<script src="/static/js/schedule_viz.js?v=20261008d"></script>
+<script src="/static/js/simple_schedule.js?v=20261008d"></script>
+</body>
+</html>

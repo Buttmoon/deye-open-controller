@@ -60,7 +60,7 @@ func placeholders(n int) string {
 }
 
 func checkTCPPort(ip string, port int, timeout time.Duration) bool {
-	address := fmt.Sprintf("%s:%d", ip, port)
+	address := net.JoinHostPort(ip, strconv.Itoa(port))
 	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
 		return false

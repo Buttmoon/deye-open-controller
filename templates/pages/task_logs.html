@@ -5,100 +5,81 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/css/common.css">
-  <style>
-    .log-search { margin-top: 14px; }
-    .log-search input {
-      width: 100%;
-      padding: 12px 14px;
-      background:#0f172a;
-      border:1px solid rgba(255,255,255,.09);
-      border-radius:12px;
-      color:#e5e7eb;
-    }
-    .payload-box { max-width: 520px; }
-    .payload-toggle { margin-bottom: 8px; }
-    .payload-json { display:none; white-space:pre-wrap; word-break:break-word; max-height:360px; overflow:auto; }
-    .payload-json.open { display:block; }
-    .tag { display:inline-block; padding:4px 8px; border:1px solid rgba(255,255,255,.1); border-radius:999px; color:#94a3b8; font-size:12px; }
-  </style>
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008">
 </head>
 <body>
 <div class="container">
   <div class="card">
-    <div class="button-row"><a href="/" class="btn btn-secondary">← Назад</a><a href="/logs/monitor" class="btn btn-secondary">App Logs</a><a href="/api/logs?kind=task&limit=200" class="btn btn-secondary" target="_blank">API JSON</a></div>
-    <h1>Журнал выполнения задач</h1>
-    <p class="muted">Хранятся последние выполнения почасовой задачи с payload, который отправляется в консоль.</p>
-    <div class="log-search">
-      <input id="taskLogSearch" type="text" placeholder="Поиск по имени инвертора или ip:port, например inverter-1 или 192.168.1.10:8899">
+    <div class="row between">
+      <h1 class="mt-0">Журнал выполнения задач</h1>
+      <div class="button-row"><a href="/history" class="btn btn-secondary">История операций</a><a href="/logs/monitor" class="btn btn-secondary">Журнал приложения</a><a href="/api/logs?kind=task&limit=200" class="btn btn-secondary" target="_blank">JSON</a></div>
     </div>
+    <p class="muted">Результаты циклов планировщика. Payload загружается только при раскрытии строки.</p>
+    <form class="filters" method="GET" action="/tasks/logs">
+      <label class="field" style="flex:1 1 320px">Поиск
+        <input name="q" type="search" value="{{.Query}}" placeholder="Имя инвертора, ip:port, шаблон, статус или текст сообщения">
+      </label>
+      <label class="field">На странице
+        <select name="per_page">
+          <option value="25" {{if eq .PerPage 25}}selected{{end}}>25</option>
+          <option value="50" {{if eq .PerPage 50}}selected{{end}}>50</option>
+          <option value="100" {{if eq .PerPage 100}}selected{{end}}>100</option>
+          <option value="200" {{if eq .PerPage 200}}selected{{end}}>200</option>
+        </select>
+      </label>
+      <div class="button-row"><button class="btn btn-primary" type="submit">Найти</button>{{if .Query}}<a class="btn btn-secondary" href="/tasks/logs">Сбросить</a>{{end}}</div>
+    </form>
   </div>
   <div class="card">
-    <div class="table-wrap">
-      <table>
+    <div class="table-scroll">
+      <table class="data-table">
         <thead>
-          <tr><th>ID</th><th>UTC</th><th>Локальное время</th><th>Инвертор</th><th>Шаблон</th><th>Статус</th><th>Сообщение</th><th>Payload</th></tr>
+          <tr><th>ID</th><th>Время (локальное)</th><th>Инвертор</th><th>Шаблон</th><th>Статус</th><th>Сообщение</th><th>Payload</th></tr>
         </thead>
-        <tbody id="taskLogsTableBody">
-        {{if .Logs}}
-          {{range .Logs}}
-          <tr class="task-log-row" data-search="{{.InverterName}} {{.InverterIP}}:{{.InverterPort}} {{.InverterIP}} {{.TemplateName}} {{.Status}}">
-            <td>{{.ID}}</td>
-            <td>{{.ExecutedAtUTC}}</td>
-            <td>{{.ExecutedAtLocal}}</td>
-            <td>
-              {{if .InverterName}}
-              <div>{{.InverterName}}</div>
-              <div class="tag">{{.InverterIP}}:{{.InverterPort}}</div>
-              {{else}}
-              <div>Системная задача</div>
-              <div class="tag">scheduler</div>
-              {{end}}
-            </td>
+        <tbody>
+        {{range .Logs}}
+          <tr>
+            <td class="mono">{{.ID}}</td>
+            <td class="nowrap">{{.ExecutedAtLocal}}<div class="small muted">UTC {{.ExecutedAtUTC}}</div></td>
+            <td>{{if .InverterName}}{{.InverterName}}<div class="small muted mono">{{.InverterIP}}:{{.InverterPort}}</div>{{else}}Системная задача<div class="small muted">планировщик</div>{{end}}</td>
             <td>{{.TemplateName}}</td>
-            <td>{{.Status}}</td>
-            <td>{{.Message}}</td>
-            <td>
-              <div class="payload-box">
-                {{if .PayloadJSON}}
-                <button type="button" class="btn btn-secondary payload-toggle">Показать JSON</button>
-                <pre class="payload-json">{{.PayloadJSON}}</pre>
-                {{else}}
-                <span class="muted">—</span>
-                {{end}}
-              </div>
-            </td>
+            <td><span class="badge plain {{if eq .Status "executed"}}badge-ok{{else if or (eq .Status "error") (eq .Status "failed") (eq .Status "blocked")}}badge-err{{else if eq .Status "warn"}}badge-warn{{else if eq .Status "info"}}badge-info{{else}}badge-muted{{end}}" title="{{.Status}}">{{if eq .Status "executed"}}выполнено{{else if eq .Status "info"}}инфо{{else if eq .Status "skipped"}}пропущено{{else if eq .Status "warn"}}предупреждение{{else if eq .Status "error"}}ошибка{{else if eq .Status "failed"}}сбой{{else if eq .Status "blocked"}}заблокировано{{else}}{{.Status}}{{end}}</span></td>
+            <td class="small">{{.Message}}</td>
+            <td>{{if .PayloadBytes}}<button type="button" class="btn btn-secondary btn-xs payload-toggle" data-id="{{.ID}}">Показать JSON</button><span class="small muted"> {{.PayloadBytes}} Б</span><pre class="result-pre hidden"></pre>{{else}}<span class="muted">—</span>{{end}}</td>
           </tr>
-          {{end}}
         {{else}}
-          <tr><td colspan="8" class="muted">Пока записей нет</td></tr>
+          <tr><td colspan="7" class="muted">{{if .Query}}Ничего не найдено{{else}}Пока записей нет{{end}}</td></tr>
         {{end}}
         </tbody>
       </table>
     </div>
+    <div class="pager">
+      {{if .PrevPage}}<a class="btn btn-secondary btn-xs" href="?q={{.Query}}&per_page={{.PerPage}}&page={{.PrevPage}}">← Назад</a>{{end}}
+      <span class="small muted">Страница {{.Page}} из {{.Pages}} · записей: {{.Total}}</span>
+      {{if .NextPage}}<a class="btn btn-secondary btn-xs" href="?q={{.Query}}&per_page={{.PerPage}}&page={{.NextPage}}">Вперёд →</a>{{end}}
+    </div>
   </div>
 </div>
+<script src="/static/js/common.js?v=20261008"></script>
 <script>
-  document.querySelectorAll('.payload-toggle').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const pre = this.parentElement.querySelector('.payload-json');
-      if (!pre) return;
-      pre.classList.toggle('open');
-      this.textContent = pre.classList.contains('open') ? 'Скрыть JSON' : 'Показать JSON';
-    });
-  });
-
-  const searchInput = document.getElementById('taskLogSearch');
-  const rows = Array.from(document.querySelectorAll('.task-log-row'));
-  if (searchInput) {
-    searchInput.addEventListener('input', function() {
-      const q = this.value.trim().toLowerCase();
-      rows.forEach(row => {
-        const hay = (row.dataset.search || '').toLowerCase();
-        row.style.display = !q || hay.includes(q) ? '' : 'none';
-      });
-    });
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.payload-toggle');
+  if (!btn) return;
+  const pre = btn.parentElement.querySelector('pre');
+  if (!pre.classList.contains('hidden')) {
+    pre.classList.add('hidden');
+    btn.textContent = 'Показать JSON';
+    return;
   }
+  if (!pre.dataset.loaded) {
+    const res = await App.busy(btn, () => App.api('/api/tasks/payload?id=' + encodeURIComponent(btn.dataset.id)));
+    if (!res.ok) { App.toast(res.message || 'Не удалось загрузить payload', 'error'); return; }
+    pre.textContent = res.payload !== undefined ? JSON.stringify(res.payload, null, 2) : res.raw;
+    pre.dataset.loaded = '1';
+  }
+  pre.classList.remove('hidden');
+  btn.textContent = 'Скрыть JSON';
+});
 </script>
-<script src="/static/js/common.js?v=20260619ui2"></script>
 </body>
 </html>

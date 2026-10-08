@@ -1,10 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -102,17 +105,53 @@ func templateImportExampleText() string {
 
 func (a *App) taskLogsPageHandler(w http.ResponseWriter, r *http.Request) {
 	settings, _ := a.getSettings()
-	logs, err := a.getTaskRunLogs(200, settings.Timezone)
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
+	perPage := parsePositiveInt(r.URL.Query().Get("per_page"), 50)
+	logs, total, err := a.getTaskRunLogsPage(page, perPage, q, settings.Timezone)
 	if err != nil {
 		http.Error(w, "Ошибка загрузки журнала задач", http.StatusInternalServerError)
-		log.Println("getTaskRunLogs error:", err)
+		log.Println("getTaskRunLogsPage error:", err)
 		return
 	}
-	data := TaskLogPageData{Title: "Журнал выполнения задач", Logs: logs}
+	if perPage <= 0 || perPage > 500 {
+		perPage = 50
+	}
+	pages := max(1, (total+perPage-1)/perPage)
+	data := TaskLogPageData{Title: "Журнал выполнения задач", Logs: logs, Query: q, Page: page, PerPage: perPage, Total: total, Pages: pages}
+	if page > 1 {
+		data.PrevPage = page - 1
+	}
+	if page < pages {
+		data.NextPage = page + 1
+	}
 	if err := a.tmplTaskLogs.Execute(w, data); err != nil {
 		http.Error(w, "Ошибка рендеринга журнала задач", http.StatusInternalServerError)
 		log.Println("tmplTaskLogs.Execute error:", err)
 	}
+}
+
+func (a *App) apiTaskPayloadHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("id")), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: "Некорректный id"})
+		return
+	}
+	payload, err := a.getTaskRunPayload(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, jsonResponse{OK: false, Message: "Запись не найдена"})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{OK: false, Message: "Ошибка чтения payload"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	if !json.Valid([]byte(payload)) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "id": id, "raw": payload})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "id": id, "payload": json.RawMessage(payload)})
 }
 
 func parseBoolCell(s string) bool {

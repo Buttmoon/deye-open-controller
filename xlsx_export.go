@@ -181,6 +181,11 @@ func xlsxWorksheetXML(scheduleJSON string) string {
 	for _, day := range payload.Days {
 		dayStr := strconv.Itoa(day.Day)
 		for hi, hour := range day.Hours {
+			// Skip disabled hours so a re-import does not revive empty default
+			// days (e.g. day 31) that were never present in the source workbook.
+			if !hour.Enabled {
+				continue
+			}
 			rowNum++
 			rowStr := strconv.Itoa(rowNum)
 			cl := getOrCacheChargeLabel(chargeLabels, hour.ChargeMode)
@@ -213,6 +218,9 @@ func xlsxWorksheetXML(scheduleJSON string) string {
 			for si := hi * 12; si < (hi+1)*12 && si < len(day.Slots); si++ {
 				slot := day.Slots[si]
 				if slot.Minute == 0 {
+					continue
+				}
+				if !slot.Enabled {
 					continue
 				}
 				if slot.SellModeKW == hour.SellModeKW &&

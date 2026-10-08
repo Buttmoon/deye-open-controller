@@ -404,12 +404,19 @@ func TestTemplateValidationUsesStrictestSelectedModel(t *testing.T) {
 	if err := validateScheduleJSONForModels(string(raw), []InverterModelDefinition{v104, v105}); err != nil {
 		t.Fatalf("strictest compatible values rejected: %v", err)
 	}
-	payload.Days[0].Hours[0].SellModeKW = 2501
+	payload.Days[0].Hours[0].SellModeKW = 65535
+	payload.Days[0].Hours[0].GridExportLimit = 65535
+	raw, _ = json.Marshal(payload)
+	if err := validateScheduleJSONForModels(string(raw), []InverterModelDefinition{v104, v105}); err != nil {
+		t.Fatalf("filled template must accept technical maximum for mixed models: %v", err)
+	}
+	payload.Days[0].Hours[0].SellModeKW = 65536
 	raw, _ = json.Marshal(payload)
 	if err := validateScheduleJSONForModels(string(raw), []InverterModelDefinition{v104, v105}); err == nil {
-		t.Fatal("power above 25 kW must be rejected when template targets 25 and 30 kW models")
+		t.Fatal("filled template must reject values above the uint16 boundary")
 	}
 	payload.Days[0].Hours[0].SellModeKW = 2500
+	payload.Days[0].Hours[0].GridExportLimit = 2500
 	payload.Days[0].Hours[0].ChargeMode = 32
 	raw, _ = json.Marshal(payload)
 	if err := validateScheduleJSONForModels(string(raw), []InverterModelDefinition{v104, v105}); err == nil {

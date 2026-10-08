@@ -134,6 +134,14 @@ def audit_model(root: Path, model: dict[str, Any]) -> dict[str, Any]:
     require(forced_offgrid.get("write_values") == {"0": 8, "1": 12},
             "off_grid_mode mapping must be disabled=0b10/enabled=0b11 in bits2-3", errors)
 
+    grid_peak_enabled = by_code.get("grid_peak_shaving_enabled", {})
+    require(grid_peak_enabled.get("modbus_address") == 178 and
+            grid_peak_enabled.get("write_mode") == "mapped_masked_bits" and
+            grid_peak_enabled.get("write_bitmask") == 48,
+            "grid_peak_shaving_enabled/register 178 must use bits4-5 with read-modify-write", errors)
+    require(grid_peak_enabled.get("write_values") == {"0": 16, "1": 48},
+            "grid_peak_shaving_enabled mapping must be disabled=0b01/enabled=0b11 in bits4-5", errors)
+
     for address, codes in sorted(writable_addresses.items()):
         require(len(codes) == 1, f"writable collision address {address}: {codes}", errors)
 

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -179,6 +180,64 @@ func (a *App) getTaskRunLogs(limit int, timezone string) ([]TaskRunLog, error) {
 		logs = append(logs, l)
 	}
 	return logs, rows.Err()
+}
+
+// getTaskRunLogsPage returns one page of task runs without payload bodies; payloads are fetched separately.
+func (a *App) getTaskRunLogsPage(page, perPage int, query, timezone string) ([]TaskRunLog, int, error) {
+	if perPage <= 0 || perPage > 500 {
+		perPage = 50
+	}
+	if page < 1 {
+		page = 1
+	}
+	const fromClause = `
+		FROM task_runs tr
+		LEFT JOIN inverters i ON i.id = tr.inverter_id
+		LEFT JOIN schedule_templates t ON t.id = tr.template_id`
+	const nameExpr = `COALESCE(NULLIF(i.name,''), CASE WHEN json_valid(tr.payload_json) THEN json_extract(tr.payload_json,'$.inverter.name') END, '')`
+	const ipExpr = `COALESCE(NULLIF(i.ip,''), CASE WHEN json_valid(tr.payload_json) THEN json_extract(tr.payload_json,'$.inverter.ip') END, '')`
+	const portExpr = `COALESCE(NULLIF(i.port,0), CASE WHEN json_valid(tr.payload_json) THEN CAST(json_extract(tr.payload_json,'$.inverter.port') AS INTEGER) END, 0)`
+	const templateExpr = `COALESCE(NULLIF(t.name,''), CASE WHEN json_valid(tr.payload_json) THEN json_extract(tr.payload_json,'$.template.name') END, '')`
+	where := ""
+	args := []any{}
+	if q := strings.ToLower(strings.TrimSpace(query)); q != "" {
+		where = ` WHERE instr(lower(` + nameExpr + ` || ' ' || ` + ipExpr + ` || ':' || ` + portExpr + ` || ' ' || ` + templateExpr + ` || ' ' || tr.status || ' ' || tr.message), ?) > 0`
+		args = append(args, q)
+	}
+	var total int
+	if err := a.db.QueryRow(`SELECT COUNT(*)`+fromClause+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := a.db.Query(`SELECT tr.id, tr.executed_at_utc, `+nameExpr+`, `+ipExpr+`, `+portExpr+`, `+templateExpr+`, tr.status, tr.message, length(tr.payload_json)`+
+		fromClause+where+` ORDER BY tr.id DESC LIMIT ? OFFSET ?`, append(args, perPage, (page-1)*perPage)...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	loc, _ := time.LoadLocation(timezone)
+	if loc == nil {
+		loc = time.UTC
+	}
+	logs := []TaskRunLog{}
+	for rows.Next() {
+		var l TaskRunLog
+		var payloadLen sql.NullInt64
+		if err := rows.Scan(&l.ID, &l.ExecutedAtUTC, &l.InverterName, &l.InverterIP, &l.InverterPort, &l.TemplateName, &l.Status, &l.Message, &payloadLen); err != nil {
+			return nil, 0, err
+		}
+		l.PayloadBytes = int(payloadLen.Int64)
+		if parsed, err := time.Parse("2006-01-02 15:04:05", l.ExecutedAtUTC); err == nil {
+			l.ExecutedAtLocal = parsed.In(loc).Format("2006-01-02 15:04:05 MST")
+		}
+		logs = append(logs, l)
+	}
+	return logs, total, rows.Err()
+}
+
+func (a *App) getTaskRunPayload(id int64) (string, error) {
+	var payload string
+	err := a.db.QueryRow(`SELECT payload_json FROM task_runs WHERE id = ?`, id).Scan(&payload)
+	return payload, err
 }
 
 func (a *App) clearTaskRunLogs() error { _, err := a.db.Exec(`DELETE FROM task_runs`); return err }

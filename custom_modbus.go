@@ -221,6 +221,14 @@ func (a *App) customModbusWriteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	profileParams, _ := LoadDeviceParameters(model.ParametersFile)
+	if blocked, msg := a.gridPeakRegisterBlocked(profileParams, address); blocked {
+		a.recordHistory(HistoryEntry{OperationType: opRegisterWrite, Status: histBlocked, InverterID: inverterID, Initiator: requestInitiator(r),
+			RegisterAddress: intPtr(int(address)), RegisterCode: code, RequestedValue: intPtr(int(value)), Message: "Запись через /api/modbus/write заблокирована", Error: msg})
+		writeJSON(w, http.StatusForbidden, CustomModbusWriteResponse{OK: false, Message: msg})
+		return
+	}
+
 	req := CustomModbusWriteRequest{
 		IP:                ip,
 		Port:              port,
@@ -239,10 +247,47 @@ func (a *App) customModbusWriteHandler(w http.ResponseWriter, r *http.Request) {
 		WriteBitmask:      writeBitmask,
 	}
 
+	started := time.Now()
 	resp := a.runCustomModbusWrite(req)
+	histStatus := histError
+	if resp.OK {
+		histStatus = histVerified
+	}
+	opID := a.recordHistory(HistoryEntry{OperationType: opRegisterWrite, Status: histStatus, InverterID: inverterID, Endpoint: fmt.Sprintf("%s:%d", ip, port),
+		Initiator: requestInitiator(r), RegisterAddress: intPtr(int(address)), RegisterCode: code, RequestedValue: intPtr(int(value)),
+		Attempt: len(resp.Attempts), DurationMS: time.Since(started).Milliseconds(), Message: "Запись через /api/modbus/write (FC16 + контрольное чтение)",
+		Error: map[bool]string{true: "", false: resp.Message}[resp.OK], Details: map[string]any{"write_mode": writeMode, "write_bitmask": writeBitmask, "logical_value": logicalValue, "model_key": model.Key}})
+	for _, att := range resp.Attempts {
+		if len(resp.Attempts) < 2 {
+			break
+		}
+		st := histError
+		if att.Status == "ok" {
+			st = histVerified
+		}
+		a.recordHistory(HistoryEntry{ParentID: opID, OperationType: opRetryAttempt, Status: st, InverterID: inverterID, RegisterAddress: intPtr(int(address)), RegisterCode: code,
+			Attempt: att.Attempt, DurationMS: att.DurationMS, Error: att.Error, Message: fmt.Sprintf("Попытка %d", att.Attempt)})
+	}
 	status := http.StatusOK
 	if !resp.OK {
 		status = http.StatusBadRequest
+	} else if req.InverterID > 0 {
+		switch req.Code {
+		case "grid_peak_shaving_power":
+			powerW := int(req.LogicalValue)
+			if err := a.saveStoredGridPeakState(req.InverterID, &powerW, nil); err != nil {
+				resp.OK = false
+				resp.Message = "Значение записано в инвертор, но не сохранено в приложении: " + err.Error()
+				status = http.StatusInternalServerError
+			}
+		case "grid_peak_shaving_enabled":
+			enabled := req.LogicalValue == 1
+			if err := a.saveStoredGridPeakState(req.InverterID, nil, &enabled); err != nil {
+				resp.OK = false
+				resp.Message = "Состояние записано в инвертор, но не сохранено в приложении: " + err.Error()
+				status = http.StatusInternalServerError
+			}
+		}
 	}
 	writeJSON(w, status, resp)
 }

@@ -104,13 +104,13 @@ func loadInverterModels(path string) ([]InverterModelDefinition, error) {
 			return nil, fmt.Errorf("%s: model[%d] rated_power_w должен быть > 0", path, i)
 		}
 		if model.SchedulePowerMaxW <= 0 {
-			model.SchedulePowerMaxW = model.RatedPowerW
+			model.SchedulePowerMaxW = 655350
 		}
 		if model.GridExportMaxW <= 0 {
-			model.GridExportMaxW = model.RatedPowerW
+			model.GridExportMaxW = 655350
 		}
-		if model.SchedulePowerMaxW > model.RatedPowerW || model.GridExportMaxW > model.RatedPowerW {
-			return nil, fmt.Errorf("%s: model[%d] лимиты мощности не могут превышать rated_power_w", path, i)
+		if model.SchedulePowerMaxW > 655350 || model.GridExportMaxW > 655350 {
+			return nil, fmt.Errorf("%s: model[%d] Power/Grid Export Limit не могут превышать технический uint16-предел 655350 W", path, i)
 		}
 		if model.BatteryCurrentMaxA <= 0 || model.BatteryCurrentMaxA > 185 {
 			return nil, fmt.Errorf("%s: model[%d] battery_current_max_a должен быть 1–185 A", path, i)
@@ -337,6 +337,9 @@ func validateDeviceParameterProfile(model InverterModelDefinition, params []Devi
 	if useTimer.WriteMode != "masked_bits" || useTimer.WriteBitmask == nil || *useTimer.WriteBitmask != 255 || useTimer.Max == nil || *useTimer.Max != 255 {
 		return fmt.Errorf("профиль %s: use_timer должен менять только bits0-7 регистра 146", model.Name)
 	}
+	if len(useTimer.AllowedValues) > 0 && !allowedValuesSupersededByBitLayout(useTimer) {
+		return fmt.Errorf("профиль %s: use_timer/register 146 — битовая маска (bit0 TOU, bits1-7 дни недели); allowed_values=%v без описания битов недопустим", model.Name, useTimer.AllowedValues)
+	}
 	batteryWakeUp := byCode["battery_wake_up"]
 	if batteryWakeUp.WriteMode != "masked_bits" || batteryWakeUp.WriteBitmask == nil || *batteryWakeUp.WriteBitmask != 1 {
 		return fmt.Errorf("профиль %s: battery_wake_up/register 112 должен менять только bit0", model.Name)
@@ -345,6 +348,12 @@ func validateDeviceParameterProfile(model InverterModelDefinition, params []Devi
 	if offGridMode.WriteMode != "mapped_masked_bits" || offGridMode.WriteBitmask == nil || *offGridMode.WriteBitmask != 12 ||
 		offGridMode.WriteValues["0"] != 8 || offGridMode.WriteValues["1"] != 12 {
 		return fmt.Errorf("профиль %s: off_grid_mode/register 179 должен безопасно кодировать disable=0b10/enable=0b11 в bits2-3", model.Name)
+	}
+	gridPeakEnabled := byCode["grid_peak_shaving_enabled"]
+	if gridPeakEnabled.ModbusAddress != 178 || gridPeakEnabled.WriteMode != "mapped_masked_bits" ||
+		gridPeakEnabled.WriteBitmask == nil || *gridPeakEnabled.WriteBitmask != 0x30 ||
+		gridPeakEnabled.WriteValues["0"] != 0x10 || gridPeakEnabled.WriteValues["1"] != 0x30 {
+		return fmt.Errorf("профиль %s: grid_peak_shaving_enabled/register 178 должен безопасно кодировать disable=0b01/enable=0b11 в bits4-5", model.Name)
 	}
 	workMode := byCode["inverter_work_mode"]
 	if !equalIntSlices(workMode.AllowedValues, []int{0, 1, 2}) {

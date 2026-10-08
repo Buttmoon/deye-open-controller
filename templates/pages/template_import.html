@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008">
 </head>
 <body>
 <div class="container">
@@ -24,9 +25,11 @@
         <input type="file" id="xlsx_file" name="xlsx_file" accept=".xlsx" required>
       </div>
       <div class="button-row">
+        <button class="btn btn-secondary" type="button" id="importPreviewBtn">Проверить без сохранения</button>
         <button class="btn btn-primary" type="submit">Загрузить шаблоны</button>
       </div>
     </form>
+    <div id="importPreview"></div>
   </div>
 
   {{if .Imported}}
@@ -42,6 +45,26 @@
   </div>
   {{end}}
 </div>
-<script src="/static/js/common.js?v=20260619ui2"></script>
+<script src="/static/js/common.js?v=20261008"></script>
+<script>
+document.getElementById('importPreviewBtn').addEventListener('click', async function () {
+  const input = document.getElementById('xlsx_file');
+  const out = document.getElementById('importPreview');
+  if (!input.files[0]) { App.toast('Выберите XLSX-файл', 'warning'); return; }
+  const fd = new FormData();
+  fd.set('file', input.files[0]);
+  const res = await App.busy(this, async () => {
+    const r = await fetch('/api/templates/import-preview', {method: 'POST', body: fd});
+    return r.json().catch(() => ({ok: false, message: 'Некорректный ответ сервера'}));
+  });
+  if (!res.ok) { out.innerHTML = `<div class="notice notice-err small">${App.esc(res.message)}</div>`; return; }
+  out.innerHTML = `<h3>Файл «${App.esc(res.file)}»: листов-шаблонов ${res.templates.length}</h3>
+    <div class="table-scroll"><table class="data-table"><thead><tr><th>Лист</th><th>Дней</th><th>Часов</th><th>5-мин.</th><th>Маска 146</th><th>Макс. мощность</th><th>Режимы</th><th>Проверка</th></tr></thead><tbody>
+    ${res.templates.map(t => `<tr><td>${App.esc(t.name)}${t.exists ? ' <span class="badge plain badge-warn">имя уже есть</span>' : ''}</td><td>${t.summary.days}</td><td>${t.summary.enabled_hours}</td><td>${t.summary.custom_slots}</td><td class="mono">${t.summary.use_timer_mask}</td><td>${t.summary.max_power_w} Вт</td>
+      <td class="small">${Object.entries(t.summary.charge_modes || {}).map(([k, v]) => App.esc(k) + ': ' + v).join('<br>')}</td>
+      <td>${t.error ? `<span class="badge badge-err">ошибка</span><div class="small">${App.esc(t.error)}</div>` : '<span class="badge badge-ok">в порядке</span>'}</td></tr>`).join('')}
+    </tbody></table></div><p class="small muted">Проверка выполнена по профилю модели по умолчанию. Ничего не сохранено.</p>`;
+});
+</script>
 </body>
 </html>

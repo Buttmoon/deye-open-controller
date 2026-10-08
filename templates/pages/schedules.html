@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/css/common.css?v=20260703c">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008">
 </head>
 <body>
 <div id="popup" class="popup"></div>
 <div class="container">
   <div class="button-row" style="margin-bottom:16px;"><a href="/" class="btn btn-secondary">← Назад на главную</a></div>
-  <div class="card page-header"><h1>Редактирование расписания</h1><p class="muted">Настройка расписания с точностью до 5 минут. Scheduler отправляет задачу каждые 5 минут. Активность автоматической отправки задаётся через Use Timer; фактический адрес берётся из JSON-профиля каждого выбранного инвертора.</p><p><strong>Безопасные пределы для выбранной группы:</strong> мощность разряда до {{.SchedulePowerMaxW}} W, экспорт до {{.GridExportMaxW}} W. При выборе нескольких моделей применяется наименьший предел.</p><div class="inverters-box">{{range .Inverters}}<div class="inv-chip"><strong>{{.Name}}</strong> | {{.IP}}:{{.Port}}<br><small>{{.ModelName}} · <code>{{.ModelKey}}</code></small></div>{{end}}</div></div>
+  <div class="card page-header"><div class="page-title"><div><h1>Расписание: расширенный режим</h1><p class="muted">Почасовая настройка с 5-минутными переопределениями. Планировщик проверяет расписание каждые 5 минут; активность автоматической отправки задаётся маской Use Timer (регистр 146), адреса регистров берутся из профиля каждой модели.</p><p class="small"><strong>Мощность и лимит экспорта:</strong> до {{.SchedulePowerMaxW}} Вт и {{.GridExportMaxW}} Вт соответственно (наименьший предел среди выбранных моделей), шаг 10 Вт.</p></div><div class="row"><a class="btn btn-secondary" href="/schedules/simple">Упрощённый режим</a></div></div><div class="inverters-box">{{range .Inverters}}<div class="inv-chip"><strong>{{.Name}}</strong> | {{.IP}}:{{.Port}}<br><small>{{.ModelName}} · <code>{{.ModelKey}}</code></small></div>{{end}}</div></div>
   <div class="card">
     <h2>Параметры расписания</h2>
     <div class="field"><label for="scheduleName">Название расписания</label><input id="scheduleName" value="{{.ScheduleName}}"></div>
@@ -26,11 +27,36 @@
     <div id="gridView" class="day-grid"></div>
     <div class="button-row" style="margin-top:18px;"><button class="btn btn-primary" type="button" id="saveScheduleBtn">Сохранить расписание</button></div>
   </div>
+  <div class="card" id="scheduleOverview">
+    <div class="row between"><h2 class="mt-0 mb-0">Обзор сохранённого расписания</h2>
+      <div class="row">
+        <select id="vizInverter" aria-label="Инвертор">{{range .Inverters}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+        <input type="month" id="vizMonth" aria-label="Месяц">
+        <button type="button" class="btn btn-secondary btn-sm" data-viz="timeline">Шкала</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-viz="calendar">Календарь</button>
+      </div></div>
+    <p class="small muted">Показывается сохранённая версия (несохранённые правки не отображаются). Отметки ✓ и ! — результаты запусков планировщика из журнала задач; с инвертора ничего не читается.</p>
+    <div id="vizBox"><div class="empty">Выберите инвертор.</div></div>
+    <details class="plain" style="margin-top:12px"><summary>Копирование</summary>
+      <div class="filters" style="margin-top:8px">
+        <div class="field"><label for="copyFromDay">Скопировать день</label><input type="number" id="copyFromDay" min="1" max="31" value="1"></div>
+        <div class="field" style="flex:2"><label for="copyToDays">в дни (через запятую, диапазоны 10-15)</label><input type="text" id="copyToDays" placeholder="2,3,10-15"></div>
+        <div class="field"><button type="button" class="btn btn-secondary" id="copyDaysBtn">Копировать дни</button></div>
+      </div>
+      <div class="filters">
+        <div class="field" style="flex:2"><label>Скопировать всё расписание на инверторы</label><div class="chips" id="copyTargets"><span class="muted small">Загрузка…</span></div></div>
+        <div class="field"><button type="button" class="btn btn-secondary" id="copyInvertersBtn">Копировать на выбранные</button></div>
+      </div>
+      <p class="small muted">Копирование сохраняет результат сразу в базе (с проверкой по моделям) и пересоздаёт задачу планировщика. Изменения записываются в историю.</p>
+    </details>
+  </div>
 </div>
 <div id="dayModal" class="modal"><div class="modal-content"><div class="button-row" style="justify-content:space-between;align-items:center;"><h3 id="modalDayTitle">День</h3><button class="btn btn-secondary" id="modalCloseBtn" type="button">Закрыть</button></div><div id="modalDayEditor"></div></div></div>
 <script>window.chargeModeOptions = {{.ChargeModeOptionsJSON}}; window.schedulePowerMaxW = {{.SchedulePowerMaxW}}; window.gridExportMaxW = {{.GridExportMaxW}};</script>
 <script src="/static/js/common.js?v=20260525d"></script>
-<script src="/static/js/schedule_editor.js?v=20260706a"></script>
+<script src="/static/js/schedule_editor.js?v=20260901b"></script>
 <script src="/static/js/schedules-page.js?v=20260706a"></script>
+<script src="/static/js/schedule_viz.js?v=20261008"></script>
+<script src="/static/js/schedule_overview.js?v=20261008"></script>
 </body>
 </html>

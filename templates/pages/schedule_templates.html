@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008b">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="page-title">
+      <div>
+        <h1>Шаблоны расписаний</h1>
+        <p class="muted mb-0">Повторно используемые наборы интервалов (заряд сети, ограничение нагрузки, приоритет).
+          <b>Сохранить шаблон</b> не пишет в инвертор. <b>Применить</b> — отдельное действие с предпросмотром и подтверждением.
+          Аппаратных слотов TOU: {{.HardwareSlots}}.</p>
+      </div>
+      <div class="row">
+        <a class="btn btn-secondary" href="/schedules/simple">Упрощённый редактор</a>
+        <button type="button" class="btn btn-primary" id="tplCreate">Создать шаблон</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="field"><label for="tplSearch">Поиск</label><input type="search" id="tplSearch" placeholder="название, описание, тег"></div>
+      <div class="field"><label for="tplSort">Сортировка</label>
+        <select id="tplSort">
+          <option value="name">По названию</option>
+          <option value="updated">По изменению</option>
+          <option value="version">По версии</option>
+        </select></div>
+      <div class="field"><label class="check"><input type="checkbox" id="tplImpOverwrite"> Перезаписывать при импорте</label></div>
+      <div class="field"><a class="btn btn-secondary btn-sm" id="tplExportAll" href="/api/simple-templates/export">Экспорт всех</a></div>
+      <div class="field"><label class="btn btn-secondary btn-sm" style="cursor:pointer">Импорт JSON<input type="file" id="tplImport" accept=".json,application/json" hidden></label></div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="align-items:start">
+    <div class="card">
+      <h2 class="mt-0">Список</h2>
+      <div id="tplList" class="stack"></div>
+    </div>
+    <div class="card" id="tplEditorCard">
+      <h2 class="mt-0" id="tplEditorTitle">Редактор</h2>
+      <p class="small muted" id="tplDirty" hidden>Есть несохранённые изменения</p>
+      <div class="filters">
+        <div class="field" style="flex:2"><label for="tplName">Название</label><input id="tplName" type="text"></div>
+        <div class="field"><label for="tplVersion">Версия</label><input id="tplVersion" type="text" readonly></div>
+      </div>
+      <div class="field"><label for="tplDesc">Описание</label><textarea id="tplDesc" rows="2"></textarea></div>
+      <div class="field"><label for="tplTags">Теги (через запятую)</label><input id="tplTags" type="text" placeholder="ночь, будни"></div>
+      <div class="field"><label for="tplModels">Совместимые модели (ключи через запятую, пусто = любая)</label><input id="tplModels" type="text" placeholder="deye_sun_30k_sg02hp3_eu_am3_v1054"></div>
+      <div id="tplTimeline" class="day-timeline"></div>
+      <div class="table-wrap" style="overflow:auto;margin-top:10px">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Начало</th><th>Конец</th><th>Сеть</th><th>Load Limit</th><th>Приоритет</th><th>Вт</th><th>SOC</th><th></th></tr></thead>
+          <tbody id="tplIntervals"></tbody>
+        </table>
+      </div>
+      <div class="button-row" style="margin-top:10px">
+        <button type="button" class="btn btn-secondary btn-sm" id="tplAdd">+ Интервал</button>
+        <button type="button" class="btn btn-primary" id="tplSave">Сохранить шаблон</button>
+        <button type="button" class="btn btn-secondary" id="tplDup">Дублировать</button>
+        <button type="button" class="btn btn-danger" id="tplDel">Удалить</button>
+      </div>
+      <hr>
+      <h3>Версии</h3>
+      <div id="tplVersions" class="small muted">Выберите шаблон</div>
+      <hr>
+      <h3>Применить к инвертору</h3>
+      <p class="small muted">Сначала предпросмотр и проверка совместимости. Запись регистров — только после подтверждения и через сохранение расписания + планировщик.</p>
+      <div class="field"><label>Инверторы</label>
+        <div class="chips" id="tplInverters">
+          {{range .Inverters}}<label class="chip"><input type="checkbox" value="{{.ID}}" data-model="{{.ModelKey}}"> {{.Name}}</label>{{else}}<span class="muted">Нет инверторов</span>{{end}}
+        </div></div>
+      <div class="button-row">
+        <button type="button" class="btn btn-secondary" id="tplPreviewApply">Предпросмотр применения</button>
+        <button type="button" class="btn btn-warning" id="tplApply">Применить…</button>
+      </div>
+      <div id="tplApplyOut"></div>
+    </div>
+  </div>
+</div>
+<script id="tplModelsJson" type="application/json">{{.ModelsJSON}}</script>
+<script src="/static/js/common.js?v=20261008b"></script>
+<script src="/static/js/schedule_templates.js?v=20261008b"></script>
+</body>
+</html>

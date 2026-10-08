@@ -7,6 +7,7 @@ import (
 
 func (a *App) registerRoutes() {
 	a.mux.Handle("/static/", staticFileServer())
+	a.mux.HandleFunc("/health", a.healthHandler)
 	a.mux.HandleFunc("/", a.homeHandler)
 	a.mux.HandleFunc("/settings", a.settingsPageHandler)
 	a.mux.HandleFunc("/tasks/settings", a.tasksSettingsPageHandler)
@@ -36,6 +37,7 @@ func (a *App) registerRoutes() {
 	a.mux.HandleFunc("/settings/modbus-write", a.customModbusWriteHandler)
 	a.mux.HandleFunc("/settings/inverter-time", a.setInverterTimeHandler)
 	a.mux.HandleFunc("/api/modbus/write", a.customModbusWriteHandler)
+	a.mux.HandleFunc("/api/modbus/read", a.modbusReadAPIHandler)
 	a.mux.HandleFunc("/api/inverter-time/set", a.setInverterTimeHandler)
 	a.mux.HandleFunc("/api/inverter/screen", a.apiInverterScreenHandler)
 
@@ -59,6 +61,7 @@ func (a *App) registerRoutes() {
 	a.mux.HandleFunc("/templates/import/example.xlsx", a.templateImportExampleXLSXHandler)
 	a.mux.HandleFunc("/templates/import/upload", a.templateImportUploadHandler)
 	a.mux.HandleFunc("/tasks/logs", a.taskLogsPageHandler)
+	a.mux.HandleFunc("/api/tasks/payload", a.apiTaskPayloadHandler)
 	a.mux.HandleFunc("/tasks/run-now", a.runSchedulerNowHandler)
 	a.mux.HandleFunc("/tasks/restart-last", a.restartPreviousTaskHandler)
 	a.mux.HandleFunc("/logs/monitor", a.appLogsPageHandler)
@@ -85,6 +88,56 @@ func (a *App) registerRoutes() {
 	a.mux.HandleFunc("/integration/save", a.saveIntegrationSettingsHandler)
 	a.mux.HandleFunc("/integration/test", a.testIntegrationPushHandler)
 	a.mux.HandleFunc("/integration/preview", a.previewIntegrationPayloadHandler)
+
+	// Modernization release.
+	a.mux.HandleFunc("/history", a.historyPageHandler)
+	a.mux.HandleFunc("/api/history", a.apiHistoryHandler)
+	a.mux.HandleFunc("/api/history/export", a.apiHistoryExportHandler)
+	a.mux.HandleFunc("/api/app-settings", a.apiAppSettingsHandler)
+	a.mux.HandleFunc("/api/system/info", a.apiSystemInfoHandler)
+	a.mux.HandleFunc("/api/system/backup", a.apiSystemBackupHandler)
+
+	a.mux.HandleFunc("/registers/test", a.registerTestPageHandler)
+	a.mux.HandleFunc("/api/registers", a.apiRegistersListHandler)
+	a.mux.HandleFunc("/api/registers/read", a.apiRegisterReadHandler)
+	a.mux.HandleFunc("/api/registers/write-preview", a.apiRegisterWritePreviewHandler)
+	a.mux.HandleFunc("/api/registers/write", a.apiRegisterWriteHandler)
+	a.mux.HandleFunc("/api/registers/observations", a.apiRegisterObservationsHandler)
+	a.mux.HandleFunc("/api/registers/profile/patch", a.apiRegisterProfilePatchHandler)
+	a.mux.HandleFunc("/api/registers/profile/changes", a.apiRegisterProfileChangesHandler)
+	a.mux.HandleFunc("/api/registers/profile/rollback", a.apiRegisterProfileRollbackHandler)
+	a.mux.HandleFunc("/api/registers/profile/export", a.apiRegisterProfileExportHandler)
+	a.mux.HandleFunc("/api/registers/profile/install", a.apiRegisterProfileInstallHandler)
+	a.mux.HandleFunc("/api/registers/profiles", a.apiRegisterProfilesStatusHandler)
+
+	a.mux.HandleFunc("/status", a.statusPageHandler)
+	a.mux.HandleFunc("/api/inverters/status", a.apiInvertersStatusHandler)
+	a.mux.HandleFunc("/api/inverters/status/refresh", a.apiInverterStatusRefreshHandler)
+
+	a.mux.HandleFunc("/schedules/simple", a.simpleSchedulePageHandler)
+	a.mux.HandleFunc("/schedules/templates", a.scheduleTemplatesPageHandler)
+	a.mux.HandleFunc("/api/simple-schedule/preview", a.apiSimpleSchedulePreviewHandler)
+	a.mux.HandleFunc("/api/simple-schedule/apply", a.apiSimpleScheduleApplyHandler)
+	a.mux.HandleFunc("/api/simple-schedule/analyze", a.apiSimpleScheduleAnalyzeHandler)
+	a.mux.HandleFunc("/api/simple-schedule/extract-rules", a.apiSimpleScheduleExtractRulesHandler)
+	a.mux.HandleFunc("/api/simple-schedule/export-xlsx", a.apiSimpleScheduleExportXLSXHandler)
+	a.mux.HandleFunc("/api/simple-templates", a.apiSimpleTemplatesHandler)
+	a.mux.HandleFunc("/api/simple-templates/import", a.apiSimpleTemplateImportHandler)
+	a.mux.HandleFunc("/api/simple-templates/export", a.apiSimpleTemplateExportHandler)
+	a.mux.HandleFunc("/api/simple-templates/versions", a.apiSimpleTemplateVersionsHandler)
+	a.mux.HandleFunc("/api/simple-templates/preview-apply", a.apiSimpleTemplatePreviewApplyHandler)
+	a.mux.HandleFunc("/api/templates/duplicate", a.apiTemplateDuplicateHandler)
+	a.mux.HandleFunc("/api/templates/import-preview", a.apiTemplateImportPreviewHandler)
+	a.mux.HandleFunc("/api/schedules/timeline", a.apiScheduleTimelineHandler)
+	a.mux.HandleFunc("/api/schedules/copy", a.apiScheduleCopyHandler)
+	a.mux.HandleFunc("/guide", userGuideHandler)
+	a.mux.HandleFunc("/inverter-user-guide.html", userGuideHandler)
+}
+
+func userGuideHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	_, _ = w.Write(userGuideHTML)
 }
 
 func staticFileServer() http.Handler {
@@ -92,5 +145,5 @@ func staticFileServer() http.Handler {
 	if err != nil {
 		panic("embedded assets not found: " + err.Error())
 	}
-	return http.StripPrefix("/static/", http.FileServer(http.FS(sub)))
+	return http.StripPrefix("/static/", cachedStaticHandler(sub))
 }

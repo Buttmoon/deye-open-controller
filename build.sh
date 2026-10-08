@@ -19,7 +19,7 @@ assert registry.get('schema_version', 0) > 0, 'invalid schema_version'
 assert models, 'models list is empty'
 assert sum(bool(m.get('default')) for m in models) == 1, 'exactly one model must be default'
 
-required = {'grid_export_limit', 'grid_charge_enable', 'solar_sell', 'inverter_work_mode', 'use_timer', 'priority_load'}
+required = {'grid_export_limit', 'grid_charge_enable', 'grid_peak_shaving_enabled', 'grid_peak_shaving_power', 'solar_sell', 'inverter_work_mode', 'use_timer', 'priority_load'}
 for point in range(1, 7):
     required |= {
         f'sell_time_point_{point}',
@@ -54,6 +54,15 @@ PY
 validate_files
 python3 scripts/audit_register_profiles.py --root . --json-out REGISTER_AUDIT.json --md-out REGISTER_AUDIT.md
 
+VERSION="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
+LDFLAGS="-s -w -X main.buildVersion=${VERSION}"
+
+build_one() {
+  local goos="$1" goarch="$2" out="$3"
+  echo "Building ${out} (GOOS=${goos} GOARCH=${goarch})..."
+  CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags="$LDFLAGS" -o "$out" .
+}
+
 case "$MODE" in
   validate)
     ;;
@@ -62,10 +71,20 @@ case "$MODE" in
     ;;
   build)
     go test ./...
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o inverter-schedule .
+    build_one "$(go env GOOS)" "$(go env GOARCH)" "inverter-schedule"
+    ;;
+  release)
+    go test ./...
+    mkdir -p dist
+    build_one linux amd64 dist/inverter-schedule-linux-amd64
+    build_one windows amd64 dist/inverter-schedule-windows-amd64.exe
+    # Host binary for local smoke checks (same as build).
+    build_one "$(go env GOOS)" "$(go env GOARCH)" "inverter-schedule"
+    echo "Release artifacts:"
+    ls -la dist/ inverter-schedule
     ;;
   *)
-    echo "Usage: $0 [validate|test|build]" >&2
+    echo "Usage: $0 [validate|test|build|release]" >&2
     exit 2
     ;;
 esac

@@ -96,6 +96,7 @@ func (a *App) homeHandler(w http.ResponseWriter, r *http.Request) {
 		HasNext:                page < totalPages,
 		PrevPage:               page - 1,
 		NextPage:               page + 1,
+		GridPeakEnabled:        a.gridPeakFeatureEnabled(),
 	}
 
 	if err := a.tmplMain.Execute(w, data); err != nil {

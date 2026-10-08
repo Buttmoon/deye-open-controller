@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Руководство пользователя — Deye Open Controller</title>
+<style>
+:root{
+  --bg:#0f1419; --bg2:#172029; --panel:#1c2733; --line:#2c3b4c;
+  --text:#e8eef5; --muted:#9aabbc; --accent:#3d9cf0; --accent2:#2f7fc4;
+  --ok:#3fbf7f; --warn:#e0a23a; --danger:#e35d5d; --info:#5eb0e8;
+  --radius:12px; --shadow:0 10px 30px rgba(0,0,0,.28);
+  --sidebar:300px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Segoe UI",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--sans);background:linear-gradient(180deg,#0c1117,#121a22 40%,#0f1419);color:var(--text);line-height:1.55}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh}
+.sidebar{position:sticky;top:0;height:100vh;overflow:auto;background:rgba(16,22,30,.96);border-right:1px solid var(--line);padding:18px 14px 40px;backdrop-filter:blur(8px)}
+.brand{font-size:15px;font-weight:700;letter-spacing:.02em;margin-bottom:4px}
+.brand small{display:block;color:#9aabbc;font-weight:500;font-size:12px;margin-top:4px}
+.search{width:100%;margin:14px 0 16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#121921;color:var(--text)}
+.nav-group{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#7f91a5;margin:14px 0 6px;padding:0 8px}
+.nav a{display:block;padding:8px 10px;border-radius:8px;color:#d5e0ea;font-size:13.5px}
+.nav a:hover,.nav a.active{background:#243141;text-decoration:none;color:#fff}
+.nav a.hidden{display:none}
+.content{padding:28px 36px 80px;max-width:980px}
+.hero{background:linear-gradient(135deg,#1a2b3d,#152233 55%,#1d3348);border:1px solid var(--line);border-radius:18px;padding:28px 30px;box-shadow:var(--shadow);margin-bottom:28px}
+.hero h1{margin:0 0 10px;font-size:28px}
+.hero p{margin:0;color:#b7c6d6;max-width:62ch}
+.toc{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:18px}
+.toc a{display:block;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:#dce7f2;font-size:13px}
+.toc a:hover{border-color:var(--accent);text-decoration:none}
+section{margin:34px 0;padding-top:8px;scroll-margin-top:18px}
+section h2{margin:0 0 12px;font-size:22px;border-bottom:1px solid var(--line);padding-bottom:8px}
+section h3{margin:22px 0 8px;font-size:17px}
+p,li{color:#d5e0ea}
+.muted{color:#9aabbc}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:14px 0}
+.notice{border-left:4px solid var(--info);background:#182432;padding:12px 14px;border-radius:0 10px 10px 0;margin:12px 0}
+.notice.warn{border-color:var(--warn);background:#2a2318}
+.notice.danger{border-color:var(--danger);background:#2a1818}
+.notice.ok{border-color:var(--ok);background:#15241c}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);background:#223041}
+.badge.ok{color:#b8f0d0;border-color:#2f6b4d}
+.badge.warn{color:#ffe0a8;border-color:#8a6a2a}
+.badge.danger{color:#ffc4c4;border-color:#8a3a3a}
+.steps{counter-reset:step}
+.step{position:relative;padding:14px 14px 14px 54px;border:1px solid var(--line);border-radius:12px;margin:10px 0;background:#16202a}
+.step:before{counter-increment:step;content:counter(step);position:absolute;left:14px;top:14px;width:28px;height:28px;border-radius:50%;background:var(--accent2);display:grid;place-items:center;font-weight:700;font-size:13px}
+.step strong{display:block;margin-bottom:4px}
+details.explain{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;background:#151e28}
+details.explain summary{cursor:pointer;font-weight:600}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:960px){.layout{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.grid-2{grid-template-columns:1fr}.content{padding:18px}}
+.diagram{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.diagram .box{background:#203040;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
+.diagram .arrow{color:#7f91a5}
+.ui-mock{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#101820;margin:12px 0}
+.ui-mock .bar{background:#1b2836;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;gap:10px}
+.ui-mock .body{padding:14px}
+.btn{display:inline-block;background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:13px}
+.btn.secondary{background:#2a3848}
+.kbd{font-family:var(--mono);font-size:12px;background:#243141;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#1a2531}
+.tooltip{border-bottom:1px dotted var(--accent);cursor:help}
+.scenario-nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.scenario-panel{display:none}
+.scenario-panel.active{display:block}
+.footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);color:#8fa0b2;font-size:13px}
+.mark{background:rgba(61,156,240,.18);border-radius:3px}
+.burger{display:none;position:fixed;top:12px;right:12px;z-index:20;background:#243141;border:1px solid var(--line);color:#fff;border-radius:10px;padding:8px 10px}
+@media(max-width:960px){.burger{display:block}.sidebar{display:none}.sidebar.open{display:block}}
+</style>
+</head>
+<body>
+<button class="burger" id="burger" type="button" aria-label="Меню">☰</button>
+<div class="layout">
+<aside class="sidebar" id="sidebar">
+  <div class="brand">Deye Open Controller<small>Интерактивное руководство оператора</small></div>
+  <input class="search" id="search" type="search" placeholder="Поиск по руководству…" autocomplete="off">
+  <nav class="nav" id="nav">
+    <div class="nav-group">Начало</div>
+    <a href="#intro">1. Введение</a>
+    <a href="#first-launch">2. Первый запуск</a>
+    <a href="#navigation">3. Навигация</a>
+    <div class="nav-group">Инверторы</div>
+    <a href="#add-inverter">4. Добавление инвертора</a>
+    <a href="#connection-test">5. Проверка связи</a>
+    <a href="#status">6. Состояние инвертора</a>
+    <div class="nav-group">Расписания</div>
+    <a href="#schedules">7. Создание расписаний</a>
+    <a href="#simple">8. Упрощённый режим</a>
+    <a href="#advanced">9. Расширенный режим</a>
+    <a href="#recurring">10. Повторяющиеся задания</a>
+    <a href="#import-xlsx">11. Импорт Excel</a>
+    <a href="#export">12. Экспорт расписаний</a>
+    <div class="nav-group">Регистры и журналы</div>
+    <a href="#registers">13. Определения регистров</a>
+    <a href="#register-test">14. Безопасное тестирование</a>
+    <a href="#history">15. История операций</a>
+    <a href="#monitoring">16. Контроль выполнения</a>
+    <div class="nav-group">Система</div>
+    <a href="#settings">17. Настройки</a>
+    <a href="#peak">18. Ограничение мощности</a>
+    <a href="#backup">19. Резервные копии</a>
+    <a href="#errors">20. Типовые ошибки</a>
+    <a href="#troubleshoot">21. Устранение неисправностей</a>
+    <a href="#faq">22. Частые вопросы</a>
+  </nav>
+</aside>
+<main class="content">
+  <div class="hero">
+    <h1>Руководство пользователя</h1>
+    <p>Это автономное руководство по приложению <b>Deye Open Controller</b> (планировщик и управление инверторами). Оно открывается в браузере без сервера и описывает реальные экраны, кнопки и последствия действий.</p>
+    <div class="toc" id="toc"></div>
+  </div>
+
+  <div class="notice warn">
+    <b>Важно о безопасности.</b> Просмотр значений и правка настроек приложения <u>не</u> меняют инвертор.
+    Создание расписания тоже не пишет регистры сразу — запись выполняет планировщик в назначенное время.
+    Прямая запись Modbus (тестирование регистров, ручная запись, ограничение мощности) требует явного подтверждения и оставляет след в истории.
+  </div>
+
+  <section id="intro">
+    <h2>1. Введение</h2>
+    <p>Приложение управляет несколькими гибридными инверторами Deye: расписания Time Of Use, мониторинг, история операций, шаблоны и безопасная работа с регистрами Modbus.</p>
+    <div class="grid-2">
+      <div class="card"><b>Для оператора</b><p class="muted">Упрощённый режим расписания, состояние инверторов, история заданий — без знания адресов регистров.</p></div>
+      <div class="card"><b>Для администратора</b><p class="muted">Расширенный редактор, профили регистров, тестирование регистров, API <span class="kbd">/health</span> и <span class="kbd">/api/modbus/*</span>.</p></div>
+    </div>
+    <div class="diagram">
+      <div class="box">Браузер / оператор</div><div class="arrow">→</div>
+      <div class="box">Deye Open Controller</div><div class="arrow">→</div>
+      <div class="box">Modbus TCP инвертор</div>
+    </div>
+  </section>
+
+  <section id="first-launch">
+    <h2>2. Первый запуск</h2>
+    <div class="steps">
+      <div class="step"><strong>Запустите исполняемый файл</strong>Один бинарник содержит интерфейс и профили по умолчанию. Каталог <span class="kbd">templates/</span> отдельно распространять не нужно.</div>
+      <div class="step"><strong>При первом старте создаются каталоги данных</strong><span class="kbd">data/</span> (БД, логи, резервные копии) и при необходимости файлы профилей. Пользовательские правки профилей не перезаписываются.</div>
+      <div class="step"><strong>Откройте веб-интерфейс</strong>Обычно адрес вида <span class="kbd">http://&lt;хост&gt;:8081</span> (или значение <span class="kbd">INVERTER_SCHEDULE_ADDR</span>).</div>
+      <div class="step"><strong>Проверьте часовой пояс</strong>В <b>Настройки → Общие</b>. От него зависят выполнение расписания и метки времени в журналах.</div>
+    </div>
+    <details class="explain"><summary>Переменные окружения</summary>
+      <ul>
+        <li><span class="kbd">INVERTER_SCHEDULE_ADDR</span> — адрес прослушивания (по умолчанию <span class="kbd">:8081</span>)</li>
+        <li><span class="kbd">INVERTER_SCHEDULE_WORKDIR</span> — рабочий каталог для данных и профилей</li>
+      </ul>
+    </details>
+  </section>
+
+  <section id="navigation">
+    <h2>3. Навигация по приложению</h2>
+    <p>В верхней панели — название приложения и переключатель темы. Боковое меню группирует разделы:</p>
+    <table>
+      <tr><th>Группа</th><th>Разделы</th></tr>
+      <tr><td>Основное</td><td>Главная, Состояние инверторов, Инверторы</td></tr>
+      <tr><td>Расписание</td><td>Упрощённый режим, Расширенный режим, Шаблоны, Импорт XLSX</td></tr>
+      <tr><td>Журналы</td><td>История заданий и изменений, Журнал задач, Логи</td></tr>
+      <tr><td>Инструменты</td><td>Тестирование регистров, API, это руководство</td></tr>
+      <tr><td>Настройки</td><td>Настройки, Периодические задачи, Интеграция, Уведомления</td></tr>
+    </table>
+    <div class="ui-mock">
+      <div class="bar"><span>☰ Deye Open Controller</span><span>☀ Светлая тема</span></div>
+      <div class="body muted">Хлебные крошки показывают путь: Главная › Расписание › Упрощённый режим</div>
+    </div>
+  </section>
+
+  <section id="add-inverter">
+    <h2>4. Добавление инвертора</h2>
+    <div class="steps">
+      <div class="step"><strong>Откройте главную</strong>Раздел «Добавить инвертор» или якорь меню.</div>
+      <div class="step"><strong>Укажите имя, IP и порт</strong>Типичный порт Modbus TCP — <span class="kbd">502</span> или производительский (часто <span class="kbd">8899</span>).</div>
+      <div class="step"><strong>Выберите модель</strong>От модели зависит JSON-профиль регистров. Неправильная модель → неверные адреса и шкалы.</div>
+      <div class="step"><strong>Сохраните</strong>Инвертор появится в списке. Расписание пока пустое или шаблонное.</div>
+    </div>
+    <div class="notice">Выбор модели <b>не пишет</b> в устройство. Запись начнётся только при выполнении расписания или ручной операции.</div>
+  </section>
+
+  <section id="connection-test">
+    <h2>5. Проверка связи</h2>
+    <p>Интеграционный health-эндпоинт приложения:</p>
+    <div class="card"><span class="kbd">GET /health</span> → <code>{"ok":true,"message":"deye-open-controller"}</code></div>
+    <p>Для проверки самого инвертора:</p>
+    <ul>
+      <li>Страница <b>Состояние инверторов</b> → «Обновить» — живое чтение поддерживаемых регистров.</li>
+      <li>Страница <b>Тестирование регистров</b> → чтение известного адреса (например 146).</li>
+      <li>API <span class="kbd">POST /api/modbus/read</span> — блочное чтение holding-регистров.</li>
+    </ul>
+    <div class="notice warn">Одиночный сбой не сразу помечает инвертор «не в сети»: нужен настраиваемый порог подряд идущих ошибок.</div>
+  </section>
+
+  <section id="status">
+    <h2>6. Состояние инвертора</h2>
+    <p>Страница <b>Состояние инверторов</b> показывает только параметры, которые есть в профиле модели: онлайн/офлайн, SOC, мощности сети/нагрузки/PV, режим, предупреждения, активность планировщика.</p>
+    <div class="grid-2">
+      <div class="card"><span class="badge">кэш</span><p>При открытии страницы инверторы <b>не опрашиваются</b>. Видны сохранённые значения с меткой времени.</p></div>
+      <div class="card"><span class="badge ok">живые</span><p>Кнопка «Обновить» или фоновый опрос (если включён в настройках) получают свежие данные.</p></div>
+    </div>
+    <p class="muted">Серийный номер и версия ПО показываются только если соответствующие коды есть в профиле. Для многих карт они не заданы — это не ошибка приложения.</p>
+  </section>
+
+  <section id="schedules">
+    <h2>7. Создание расписаний</h2>
+    <p>Два совместимых режима поверх одной модели данных (почасовые слоты + маска Use Timer / регистр 146):</p>
+    <div class="diagram">
+      <div class="box">Упрощённый режим<br><small>правила → часы</small></div>
+      <div class="arrow">⇄</div>
+      <div class="box">Расширенный режим<br><small>каждый час вручную</small></div>
+      <div class="arrow">→</div>
+      <div class="box">Планировщик<br><small>запись в TOU</small></div>
+    </div>
+    <div class="notice">Сохранение расписания в приложении <b>не равно</b> записи в инвертор. Планировщик применяет значения в нужный час, с отключением Use Timer на время записи и контрольным чтением.</div>
+  </section>
+
+  <section id="simple">
+    <h2>8. Упрощённый режим</h2>
+    <p>Меню: <b>Расписание → Упрощённый режим</b> (<span class="kbd">/schedules/simple</span>).</p>
+    <h3>Сценарий: расписание на будни</h3>
+    <div class="scenario-nav" id="scNav">
+      <button class="btn secondary" data-sc="1" type="button">Шаг 1</button>
+      <button class="btn secondary" data-sc="2" type="button">Шаг 2</button>
+      <button class="btn secondary" data-sc="3" type="button">Шаг 3</button>
+      <button class="btn secondary" data-sc="4" type="button">Шаг 4</button>
+      <button class="btn secondary" data-sc="5" type="button">Шаг 5</button>
+      <button class="btn secondary" data-sc="6" type="button">Шаг 6</button>
+      <button class="btn secondary" data-sc="7" type="button">Шаг 7</button>
+      <button class="btn secondary" data-sc="8" type="button">Шаг 8</button>
+    </div>
+    <div class="scenario-panel active" data-sc="1"><div class="step"><strong>Выберите инвертор</strong>Отметьте нужные устройства чекбоксами. Можно применить одно правило сразу к нескольким.</div></div>
+    <div class="scenario-panel" data-sc="2"><div class="step"><strong>Откройте упрощённый режим</strong>Убедитесь, что функция включена в <b>Настройки → Функции</b>.</div></div>
+    <div class="scenario-panel" data-sc="3"><div class="step"><strong>Выберите Пн–Пт</strong>В правиле отметьте дни недели, когда действует интервал.</div></div>
+    <div class="scenario-panel" data-sc="4"><div class="step"><strong>Задайте часы</strong>Например 08:00–18:00 — дневной режим, 18:00–08:00 — ночной. Можно добавить образец «Продажа вечером».</div></div>
+    <div class="scenario-panel" data-sc="5"><div class="step"><strong>Укажите мощность и SOC</strong>Поля мощности и ёмкости батареи — в единицах интерфейса расписания. Лимит экспорта — по необходимости.</div></div>
+    <div class="scenario-panel" data-sc="6"><div class="step"><strong>Предпросмотр</strong>Кнопка предпросмотра показывает развёрнутые часы и пересечения правил (действует правило ниже по списку).</div></div>
+    <div class="scenario-panel" data-sc="7"><div class="step"><strong>Сохраните</strong>Режим «Дополнить» сохраняет часы вне правил; «Заменить» выключает их. Параметры, которые упрощённый режим не показывает, не удаляются молча — при риске есть предупреждение.</div></div>
+    <div class="scenario-panel" data-sc="8"><div class="step"><strong>Проверьте историю</strong>Откройте <b>История заданий и изменений</b>: сохранение и последующие записи регистров появятся с статусами.</div></div>
+  </section>
+
+  <section id="advanced">
+    <h2>9. Расширенный режим</h2>
+    <p>Страница <b>Расширенный режим</b> (<span class="kbd">/schedules</span>) сохраняет полный редактор: каждый час, режимы заряда, лимиты, маска Use Timer, приоритет нагрузки, импорт/экспорт.</p>
+    <details class="explain"><summary>Регистр 146 (Use Timer)</summary>
+      <p>Это <b>битмаска</b>, а не логическое 0/1:</p>
+      <ul>
+        <li>бит 0 — таймер включён;</li>
+        <li>биты 1–7 — Пн…Вс;</li>
+        <li>бит 8 и выше — сохраняются при masked-записи, не считаются частью недельной маски 0–255.</li>
+      </ul>
+      <p>Старое ограничение <span class="kbd">allowed_values: [0,1]</span> снято: значения вроде 255 для всех дней допустимы.</p>
+    </details>
+  </section>
+
+  <section id="recurring">
+    <h2>10. Повторяющиеся задания</h2>
+    <ul>
+      <li>В упрощённом режиме — опция «Повторять ежемесячно»: правила пересчитываются в начале месяца, если расписание не правили вручную в расширенном режиме.</li>
+      <li>Шаблоны и «Добавить по образцу» ускоряют типовые сценарии (ночной заряд, вечерняя продажа, выходные).</li>
+      <li>Копирование расписания и дублирование шаблонов доступны через API/кнопки на страницах шаблонов.</li>
+    </ul>
+    <div class="notice ok">Движок выполнения по-прежнему опирается на почасовую модель. Упрощённый редактор только генерирует её.</div>
+  </section>
+
+  <section id="import-xlsx">
+    <h2>11. Импорт Excel-шаблонов</h2>
+    <p>Страница <b>Импорт XLSX</b>. Legacy-колонки не переименовываются:</p>
+    <p class="muted"><span class="kbd">Day</span>, <span class="kbd">Hour</span>/<span class="kbd">Time</span>, <span class="kbd">SellModeKW</span>, <span class="kbd">SellModeBattCapacity</span>, <span class="kbd">ChargeMode</span>, <span class="kbd">GridExportLimit</span>, <span class="kbd">GridChargeEnabled</span>, <span class="kbd">LoadLimitMode</span>, <span class="kbd">UseTimer*</span>, <span class="kbd">PriorityLoad</span>.</p>
+    <div class="steps">
+      <div class="step"><strong>Скачайте пример или используйте свой файл</strong>Файл вида «2409_ТЕСТ_ТУРА» с почасовыми строками поддерживается.</div>
+      <div class="step"><strong>Загрузите и просмотрите</strong>Перед применением доступен предпросмотр и понятные ошибки валидации.</div>
+      <div class="step"><strong>Примените к инверторам</strong>Через шаблоны или назначение расписания.</div>
+    </div>
+    <div class="notice">Если колонки Use Timer пустые, а строки заполнены, импорт включает маску <span class="kbd">255</span> (все дни), чтобы TOU оставался исполняемым.</div>
+  </section>
+
+  <section id="export">
+    <h2>12. Экспорт расписаний</h2>
+    <p>Из расширенного режима / списка инверторов — экспорт в XLSX с тем же набором колонок. Экспортируются только <b>включённые</b> часы, чтобы повторный импорт не «оживлял» пустые дни.</p>
+    <p>Упрощённые шаблоны дополнительно экспортируются в JSON.</p>
+  </section>
+
+  <section id="registers">
+    <h2>13. Определения регистров</h2>
+    <p>Каждая модель ссылается на JSON-профиль в <span class="kbd">device_parameters/</span>. В карточке регистра отображаются: адрес, код, описание, тип, ширина, знаковость, доступ, диапазоны raw/engineering, масштаб, единицы, enum/биты, совместимость, источник и статус достоверности.</p>
+    <div class="notice warn">Если в профиле только 0 и 1 — это <b>не</b> доказательство, что регистр булевый. Для битовых полей смотрите <span class="kbd">write_mode: masked_bits</span> и описания битов.</div>
+    <p>Установка непроверенного на оборудовании профиля после структурной проверки <b>не блокируется</b> предупреждением. Значок «не проверен» — информационный. Опасная запись по-прежнему требует отдельного подтверждения модели.</p>
+  </section>
+
+  <section id="register-test">
+    <h2>14. Безопасное тестирование регистров</h2>
+    <p>Страница <b>Тестирование регистров</b>.</p>
+    <div class="grid-2">
+      <div class="card"><b>Чтение</b><p>Raw, hex, bin, расшифровка, биты, время чтения, ошибки связи.</p></div>
+      <div class="card"><b>Запись</b><p>Сначала dry-run предпросмотр. Реальная запись — только с подтверждением, затем read-back и запись в историю.</p></div>
+    </div>
+    <ul>
+      <li>Редактор битовых масок меняет только известные биты и сохраняет остальные (RMW).</li>
+      <li>Автоперебор 0…255 <b>не выполняется</b>.</li>
+      <li>Наблюдения и правки метаданных профиля — с резервной копией и откатом.</li>
+      <li>Запись со страницы включается в <b>Настройки → Функции</b>.</li>
+    </ul>
+  </section>
+
+  <section id="history">
+    <h2>15. История заданий и изменений</h2>
+    <p>Страница <b>История заданий и изменений</b> хранит операции в SQLite и переживает перезапуск.</p>
+    <p>Фильтры: дата, инвертор, тип, статус, адрес регистра, поиск. Экспорт CSV/XLSX. Раскрытие показывает попытки повтора и дочерние записи регистров.</p>
+    <table>
+      <tr><th>Статус</th><th>Смысл</th></tr>
+      <tr><td>Запланировано</td><td>Операция принята, ещё не выполняется</td></tr>
+      <tr><td>Выполняется</td><td>Идёт запись/опрос</td></tr>
+      <tr><td>Применено</td><td>Команда отправлена</td></tr>
+      <tr><td>Подтверждено чтением</td><td>Read-back совпал с ожиданием</td></tr>
+      <tr><td>Ошибка / Частично / Не подтверждено</td><td>Сбой, частичный успех или нет подтверждения</td></tr>
+    </table>
+    <div class="notice danger">Статус «Подтверждено чтением» выставляется <b>только</b> после успешного контрольного чтения. Запись без read-back так не называется.</div>
+  </section>
+
+  <section id="monitoring">
+    <h2>16. Контроль выполнения расписаний</h2>
+    <ul>
+      <li><b>Журнал задач</b> — запуски планировщика.</li>
+      <li><b>История</b> — детальные записи регистров внутри запуска.</li>
+      <li><b>Лента/календарь</b> на страницах расписания — визуализация слотов и конфликтов.</li>
+      <li>Кнопки «Выполнить сейчас» / «Перезапустить предыдущее» — осознанный ручной запуск.</li>
+    </ul>
+  </section>
+
+  <section id="settings">
+    <h2>17. Настройки</h2>
+    <p>Единый хаб <span class="kbd">/settings</span> с вкладками:</p>
+    <ol>
+      <li><b>Общие</b> — часовой пояс, оформление.</li>
+      <li><b>Инверторы</b> — опрос состояния, каталог моделей, время на устройстве.</li>
+      <li><b>Регистры</b> — профили, установка/экспорт, индикаторы проверки.</li>
+      <li><b>Расписания</b> — поведение редактора по умолчанию.</li>
+      <li><b>Функции</b> — ограничение мощности, упрощённый режим, запись с тестовой страницы.</li>
+      <li><b>Уведомления</b> — переходы к SMTP/Telegram/рассылке.</li>
+      <li><b>Система</b> — версия сборки, резервные копии, диагностика, очистка.</li>
+    </ol>
+  </section>
+
+  <section id="peak">
+    <h2>18. Ограничение мощности (Grid Peak Shaving)</h2>
+    <p>Функция <b>по умолчанию выключена</b> для новых установок (<span class="kbd">feature.grid_peak_shaving=0</span>).</p>
+    <div class="card">
+      <p>Когда выключена:</p>
+      <ul>
+        <li>карточка скрыта на главной;</li>
+        <li>запись регистров 178/191 из UI/теста блокируется;</li>
+        <li>сохранённые в БД значения не удаляются;</li>
+        <li>физический режим на инверторе <b>не выключается автоматически</b>.</li>
+      </ul>
+      <p>Когда включена администратором:</p>
+      <ul>
+        <li>регистр 178 — RMW только bits 4–5;</li>
+        <li>регистр 191 — лимит мощности с шагом и пределами <b>модели</b>;</li>
+        <li>обязательны подтверждение и read-back, всё пишется в историю.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="backup">
+    <h2>19. Резервные копии и восстановление</h2>
+    <ul>
+      <li><span class="kbd">data/app.db</span> — расписания, инверторы, история, настройки KV.</li>
+      <li><span class="kbd">data/backups/</span> — копии профилей при обновлении встроенных defaults.</li>
+      <li>Раздел <b>Система</b> — создание резервной копии через API/UI.</li>
+      <li>Кастомные JSON профилей не затираются при обновлении бинарника.</li>
+    </ul>
+    <div class="notice warn">Секреты SMTP/токенов хранятся в БД. Ограничьте доступ к <span class="kbd">data/</span>.</div>
+  </section>
+
+  <section id="errors">
+    <h2>20. Типовые ошибки</h2>
+    <table>
+      <tr><th>Сообщение / симптом</th><th>Что делать</th></tr>
+      <tr><td>Modbus timeout / «не в сети»</td><td>Проверьте IP/порт, сеть, занятость шины; повторите вручную</td></tr>
+      <tr><td>Профиль требует подтверждения записи</td><td>В настройках инвертора включите подтверждение после сверки с HMI</td></tr>
+      <tr><td>Отказ записи 178/191</td><td>Включите «Ограничение мощности» в Функциях или не используйте эти регистры</td></tr>
+      <tr><td>Частично выполнено</td><td>Таймер мог остаться выключенным — смотрите историю и повторите задачу</td></tr>
+      <tr><td>Медленная загрузка страниц</td><td>Страницы не должны блокироваться на Modbus; опрос — фоном или по кнопке</td></tr>
+    </table>
+  </section>
+
+  <section id="troubleshoot">
+    <h2>21. Устранение неисправностей</h2>
+    <div class="steps">
+      <div class="step"><strong>Проверьте /health</strong>Если health не отвечает — проблема в процессе/порте, не в инверторе.</div>
+      <div class="step"><strong>Логи приложения</strong>Раздел «Логи приложения» и файл <span class="kbd">data/app.log</span>.</div>
+      <div class="step"><strong>История операций</strong>Найдите correlation/operation ID проблемной записи.</div>
+      <div class="step"><strong>Тестовое чтение</strong>Один регистр с тестовой страницы подтверждает доступность Modbus.</div>
+      <div class="step"><strong>Не гадайте адреса</strong>Сверяйте профиль с HMI по процедуре проверки регистров проекта.</div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>22. Часто задаваемые вопросы</h2>
+    <details class="explain"><summary>Нужен ли каталог templates рядом с бинарником?</summary><p>Нет. HTML/CSS/JS и defaults встроены через <span class="kbd">go:embed</span>. Нужен только доступный каталог данных.</p></details>
+    <details class="explain"><summary>Почему упрощённый режим «не видит» часть полей?</summary><p>Они сохранены в полном JSON расписания. Переключение режимов не должно их молча уничтожать; при риске потери показывается предупреждение.</p></details>
+    <details class="explain"><summary>Можно ли работать без записи в инвертор?</summary><p>Да: просмотр состояния (кэш), правка расписаний, шаблоны, история. Запись — только планировщик или явные действия с подтверждением.</p></details>
+    <details class="explain"><summary>Где API для внешней системы?</summary><p><span class="kbd">GET /health</span>, <span class="kbd">POST /api/modbus/read</span> (JSON), <span class="kbd">POST /api/modbus/write</span> (form). Auth — как настроено у остальных API.</p></details>
+    <details class="explain"><summary>Как собрать Linux и Windows?</summary><p><span class="kbd">./build.sh release</span> создаёт <span class="kbd">dist/inverter-schedule-linux-amd64</span> и <span class="kbd">dist/inverter-schedule-windows-amd64.exe</span>.</p></details>
+  </section>
+
+  <div class="footer">
+    Документ соответствует интерфейсу Deye Open Controller после модернизации: единый бинарник, история операций, упрощённый/расширенный режимы, тестирование регистров, опциональное ограничение мощности.
+    Файл можно открывать локально: <span class="kbd">inverter-user-guide.html</span> или внутри приложения по адресу <span class="kbd">/guide</span>.
+  </div>
+</main>
+</div>
+<script>
+(function(){
+  const nav=document.getElementById('nav');
+  const links=[...nav.querySelectorAll('a')];
+  const toc=document.getElementById('toc');
+  links.forEach(a=>{
+    const item=document.createElement('a');
+    item.href=a.getAttribute('href');
+    item.textContent=a.textContent;
+    toc.appendChild(item);
+  });
+  const search=document.getElementById('search');
+  search.addEventListener('input',()=>{
+    const q=search.value.trim().toLowerCase();
+    links.forEach(a=>{
+      const section=document.querySelector(a.getAttribute('href'));
+      const text=(a.textContent+' '+(section?section.textContent:'')).toLowerCase();
+      a.classList.toggle('hidden', q && !text.includes(q));
+      if(section){
+        section.querySelectorAll('p,li,td,summary,.step').forEach(node=>{
+          // no DOM rewrite for highlight to keep it simple
+        });
+      }
+    });
+    if(q){
+      document.querySelectorAll('section').forEach(sec=>{
+        const hit=sec.textContent.toLowerCase().includes(q);
+        sec.style.outline=hit?'1px solid rgba(61,156,240,.35)':'none';
+      });
+    } else {
+      document.querySelectorAll('section').forEach(sec=>sec.style.outline='none');
+    }
+  });
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(!e.isIntersecting) return;
+      const id='#'+e.target.id;
+      links.forEach(a=>a.classList.toggle('active', a.getAttribute('href')===id));
+    });
+  },{rootMargin:'-20% 0px -70% 0px',threshold:0});
+  document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+  document.getElementById('burger').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+  const panels=[...document.querySelectorAll('.scenario-panel')];
+  const buttons=[...document.querySelectorAll('#scNav button')];
+  function showSc(n){
+    panels.forEach(p=>p.classList.toggle('active', p.dataset.sc===String(n)));
+    buttons.forEach(b=>b.className=b.dataset.sc===String(n)?'btn':'btn secondary');
+  }
+  buttons.forEach(b=>b.addEventListener('click',()=>showSc(b.dataset.sc)));
+  showSc(1);
+})();
+</script>
+</body>
+</html>

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +55,11 @@ type App struct {
 	tmplAPIDocs             *template.Template
 	tmplIntegration         *template.Template
 	tmplLogDelivery         *template.Template
+	tmplHistory             *template.Template
+	tmplRegisterTest        *template.Template
+	tmplStatus              *template.Template
+	tmplSimpleSchedule      *template.Template
+	tmplScheduleTemplates   *template.Template
 	mux                     *http.ServeMux
 	schedulerState          SchedulerState
 	inverterLogState        InverterLoggerState
@@ -71,14 +78,48 @@ type App struct {
 	settingsMu              sync.RWMutex
 	settingsCache           models.Settings
 	settingsCacheLoaded     bool
+	kvMu                    sync.RWMutex
+	kvCache                 map[string]string
+	status                  *inverterStatusMonitor
+	backgroundStopCh        chan struct{}
+	backgroundWG            sync.WaitGroup
+	startedAt               time.Time
+	defaultsReport          defaultsInstallReport
 }
 
 func NewApp() (*App, error) {
+	if dir := strings.TrimSpace(os.Getenv("INVERTER_SCHEDULE_WORKDIR")); dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("workdir init error: %w", err)
+		}
+		if err := os.Chdir(dir); err != nil {
+			return nil, fmt.Errorf("workdir chdir error: %w", err)
+		}
+	}
+	report, err := installEmbeddedDefaults(".")
+	if err != nil {
+		return nil, fmt.Errorf("default profiles init error: %w", err)
+	}
 	database, err := db.InitSQLite()
 	if err != nil {
 		return nil, fmt.Errorf("database init error: %w", err)
 	}
+	app := newAppWithDB(database, "data/app.log")
+	app.defaultsReport = report
+	app.migrateFeatureFlags()
+	app.appendAppLog("info", "application initialized", map[string]any{"component": "boot", "defaults": report.Summary()})
+	app.startScheduler()
+	app.restoreActiveSchedulesOnStartup()
+	app.startInverterLogger()
+	app.startIntegrationPusher()
+	app.startLogDelivery()
+	app.startBackgroundServices()
+	return app, nil
+}
 
+// newAppWithDB builds a fully routed App without starting background workers.
+// Tests use it directly with a temporary database.
+func newAppWithDB(database *sql.DB, appLogPath string) *App {
 	parseTemplate := func(data []byte) *template.Template {
 		t := template.New("")
 		t, err := t.Parse(string(data))
@@ -104,19 +145,19 @@ func NewApp() (*App, error) {
 		tmplAPIDocs:        parseTemplate(tmplAPIDocsHTML),
 		tmplIntegration:    parseTemplate(tmplIntegrationHTML),
 		tmplLogDelivery:    parseTemplate(tmplLogDeliveryHTML),
-		mux:                http.NewServeMux(),
-		appLogPath:         "data/app.log",
+		tmplHistory:        parseTemplate(tmplHistoryHTML),
+		tmplRegisterTest:   parseTemplate(tmplRegisterTestHTML),
+		tmplStatus:         parseTemplate(tmplStatusHTML),
+		tmplSimpleSchedule:    parseTemplate(tmplSimpleScheduleHTML),
+		tmplScheduleTemplates: parseTemplate(tmplScheduleTemplatesHTML),
+		mux:                   http.NewServeMux(),
+		appLogPath:         appLogPath,
+		startedAt:          time.Now(),
 	}
-
+	app.status = newInverterStatusMonitor(app)
 	_ = app.ensureLogDir()
-	app.appendAppLog("info", "application initialized", map[string]any{"component": "boot"})
 	app.registerRoutes()
-	app.startScheduler()
-	app.restoreActiveSchedulesOnStartup()
-	app.startInverterLogger()
-	app.startIntegrationPusher()
-	app.startLogDelivery()
-	return app, nil
+	return app
 }
 
 func (a *App) Close() {
@@ -124,14 +165,23 @@ func (a *App) Close() {
 	a.stopInverterLogger()
 	a.stopIntegrationPusher()
 	a.stopLogDelivery()
+	a.stopBackgroundServices()
 	if a.db != nil {
 		_ = a.db.Close()
 	}
 }
 
+func listenAddress() string {
+	if addr := strings.TrimSpace(os.Getenv("INVERTER_SCHEDULE_ADDR")); addr != "" {
+		return addr
+	}
+	return ":8081"
+}
+
 func (a *App) Server() *http.Server {
 	return &http.Server{
-		Addr:    ":8080",
-		Handler: a.mux,
+		Addr:              listenAddress(),
+		Handler:           a.httpHandler(),
+		ReadHeaderTimeout: 15 * time.Second,
 	}
 }

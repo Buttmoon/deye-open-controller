@@ -44,8 +44,8 @@
     : canonicalChargeModeOptions;
   const allowedChargeModeValues = new Set(chargeModeOptions.map(option => option.value));
   const chargeModeSupportsSell = chargeModeOptions.some(option => (option.value & 32) !== 0);
-  const schedulePowerMaxW = Math.max(0, intValue(window.schedulePowerMaxW, 60000));
-  const gridExportMaxW = Math.max(0, intValue(window.gridExportMaxW, schedulePowerMaxW || 60000));
+  const schedulePowerMaxW = Math.max(0, intValue(window.schedulePowerMaxW, 655350));
+  const gridExportMaxW = Math.max(0, intValue(window.gridExportMaxW, schedulePowerMaxW || 655350));
   const schedulePowerMaxRaw = Math.floor(schedulePowerMaxW / 10);
   const gridExportMaxRaw = Math.floor(gridExportMaxW / 10);
   const scheduleCalendarDate = new Date();
@@ -635,10 +635,10 @@
       : `<span class="muted btn-xs" title="Все интервалы добавлены">✓</span>`;
     return `<tr class="hour-row">
       <td class="hour-label-cell">${hour.label} ${addBtnHTML}</td>
-      <td><input type="number" class="hour-input" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="sell_mode_kw" h="1" value="${displaySellModeKw(hour.sell_mode_kw)}" min="0" max="${schedulePowerMaxW}" step="10"></td>
+      <td><input type="number" class="hour-input" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="sell_mode_kw" h="1" value="${displaySellModeKw(hour.sell_mode_kw)}" min="0" step="10"></td>
       <td><input type="number" class="hour-input" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="sell_mode_batt_capacity" value="${hour.sell_mode_batt_capacity}" min="0" max="100"></td>
       <td>${chargeModeChecksHTML('hour', dayIndex, hourIndex, null, hour.charge_mode)}</td>
-      <td><input type="number" class="hour-input" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="grid_export_limit" value="${displayGridExportLimit(hour.grid_export_limit)}" min="0" max="${gridExportMaxW}" step="10"></td>
+      <td><input type="number" class="hour-input" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="grid_export_limit" value="${displayGridExportLimit(hour.grid_export_limit)}" min="0" step="10"></td>
       <td><input type="checkbox" class="hour-bool" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="grid_charge_enabled" ${hour.grid_charge_enabled ? 'checked' : ''}></td>
       <td><select class="hour-select" data-day="${dayIndex}" data-hour="${hourIndex}" data-field="load_limit_mode">
         <option value="0" ${hour.load_limit_mode === 0 ? 'selected' : ''}>Selling first</option>
@@ -655,10 +655,10 @@
         <span class="slot-time-prefix">${pad(hour)}:</span><input type="number" class="slot-time-input" data-day="${dayIndex}" data-hour="${hour}" data-old-minute="${minute}" value="${minute}" min="5" max="55" step="5">
         <button type="button" class="btn btn-secondary btn-xs remove-slot-btn" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" title="Удалить интервал">×</button>
       </td>
-      <td><input type="number" class="slot-input" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="sell_mode_kw" value="${displaySellModeKw(cs.sell_mode_kw)}" min="0" max="${schedulePowerMaxW}" step="10"></td>
+      <td><input type="number" class="slot-input" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="sell_mode_kw" value="${displaySellModeKw(cs.sell_mode_kw)}" min="0" step="10"></td>
       <td><input type="number" class="slot-input" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="sell_mode_batt_capacity" value="${cs.sell_mode_batt_capacity}" min="0" max="100"></td>
       <td>${chargeModeChecksHTML('slot', dayIndex, hour, minute, cs.charge_mode)}</td>
-      <td><input type="number" class="slot-input" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="grid_export_limit" value="${displayGridExportLimit(cs.grid_export_limit)}" min="0" max="${gridExportMaxW}" step="10"></td>
+      <td><input type="number" class="slot-input" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="grid_export_limit" value="${displayGridExportLimit(cs.grid_export_limit)}" min="0" step="10"></td>
       <td><input type="checkbox" class="slot-bool" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="grid_charge_enabled" ${cs.grid_charge_enabled ? 'checked' : ''}></td>
       <td><select class="slot-select" data-day="${dayIndex}" data-hour="${hour}" data-minute="${minute}" data-field="load_limit_mode">
         <option value="0" ${cs.load_limit_mode === 0 ? 'selected' : ''}>Selling first</option>
@@ -900,7 +900,7 @@
         el.addEventListener('focus', function(){
           const dayIndex = Number(this.dataset.day);
           const hourIndex = Number(this.dataset.hour);
-          this.max = String(schedulePowerMaxRaw);
+          this.removeAttribute('max');
           this.step = '1';
           this.value = rawSellModeKw(scheduleData.days[dayIndex].hours[hourIndex].sell_mode_kw);
           this.select();
@@ -908,7 +908,7 @@
         el.addEventListener('blur', function(){
           const dayIndex = Number(this.dataset.day);
           const hourIndex = Number(this.dataset.hour);
-          this.max = String(schedulePowerMaxW);
+          this.removeAttribute('max');
           this.step = '10';
           this.value = displaySellModeKw(scheduleData.days[dayIndex].hours[hourIndex].sell_mode_kw);
         });
@@ -917,7 +917,7 @@
         el.addEventListener('focus', function(){
           const dayIndex = Number(this.dataset.day);
           const hourIndex = Number(this.dataset.hour);
-          this.max = String(gridExportMaxRaw);
+          this.removeAttribute('max');
           this.step = '1';
           this.value = rawGridExportLimit(scheduleData.days[dayIndex].hours[hourIndex].grid_export_limit);
           this.select();
@@ -925,7 +925,7 @@
         el.addEventListener('blur', function(){
           const dayIndex = Number(this.dataset.day);
           const hourIndex = Number(this.dataset.hour);
-          this.max = String(gridExportMaxW);
+          this.removeAttribute('max');
           this.step = '10';
           this.value = displayGridExportLimit(scheduleData.days[dayIndex].hours[hourIndex].grid_export_limit);
         });
@@ -1067,7 +1067,7 @@
           const hour = Number(this.dataset.hour);
           const minute = Number(this.dataset.minute);
           const cs = scheduleData.days[dayIndex].customSlots.find(x => x.hour === hour && x.minute === minute);
-          this.max = String(schedulePowerMaxRaw);
+          this.removeAttribute('max');
           this.step = '1';
           if (cs) this.value = rawSellModeKw(cs.sell_mode_kw);
           this.select();
@@ -1077,7 +1077,7 @@
           const hour = Number(this.dataset.hour);
           const minute = Number(this.dataset.minute);
           const cs = scheduleData.days[dayIndex].customSlots.find(x => x.hour === hour && x.minute === minute);
-          this.max = String(schedulePowerMaxW);
+          this.removeAttribute('max');
           this.step = '10';
           if (cs) this.value = displaySellModeKw(cs.sell_mode_kw);
         });
@@ -1088,7 +1088,7 @@
           const hour = Number(this.dataset.hour);
           const minute = Number(this.dataset.minute);
           const cs = scheduleData.days[dayIndex].customSlots.find(x => x.hour === hour && x.minute === minute);
-          this.max = String(gridExportMaxRaw);
+          this.removeAttribute('max');
           this.step = '1';
           if (cs) this.value = rawGridExportLimit(cs.grid_export_limit);
           this.select();
@@ -1098,7 +1098,7 @@
           const hour = Number(this.dataset.hour);
           const minute = Number(this.dataset.minute);
           const cs = scheduleData.days[dayIndex].customSlots.find(x => x.hour === hour && x.minute === minute);
-          this.max = String(gridExportMaxW);
+          this.removeAttribute('max');
           this.step = '10';
           if (cs) this.value = displayGridExportLimit(cs.grid_export_limit);
         });

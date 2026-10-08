@@ -67,19 +67,18 @@ func TestExactTOURegisterMapForAllProfiles(t *testing.T) {
 	}
 }
 
-func TestSchedulePowerEncodingAndModelLimits(t *testing.T) {
+func TestSchedulePowerEncodingUsesTechnicalUint16Limit(t *testing.T) {
 	cases := []struct {
 		modelKey      string
 		scheduleValue int
 		logicalW      float64
 		raw           uint16
-		maxW          int
 	}{
-		{"deye_hybrid_60kw_legacy", 2500, 25000, 2500, 32000},
-		{"deye_hybrid_60kw_v1054_hv_x10_experimental", 6000, 60000, 6000, 60000},
-		{"deye_sun_25k_sg01hp3_eu_am2_v104", 2500, 25000, 2500, 25000},
-		{"deye_sun_25k_sg01hp3_eu_am2_v1054", 2500, 25000, 2500, 25000},
-		{"deye_sun_30k_sg02hp3_eu_am3_v1054", 3000, 30000, 3000, 30000},
+		{"deye_hybrid_60kw_legacy", 2500, 25000, 2500},
+		{"deye_hybrid_60kw_v1054_hv_x10_experimental", 6000, 60000, 6000},
+		{"deye_sun_25k_sg01hp3_eu_am2_v104", 2500, 25000, 2500},
+		{"deye_sun_25k_sg01hp3_eu_am2_v1054", 2500, 25000, 2500},
+		{"deye_sun_30k_sg02hp3_eu_am3_v1054", 3000, 30000, 3000},
 	}
 	for _, tc := range cases {
 		field := mustProfileField(t, tc.modelKey, "sell_mode_kw_point_1")
@@ -90,8 +89,11 @@ func TestSchedulePowerEncodingAndModelLimits(t *testing.T) {
 		if raw != tc.raw || math.Abs(logical-tc.logicalW) > 0.001 {
 			t.Fatalf("model=%s logical=%f raw=%d", tc.modelKey, logical, raw)
 		}
-		if _, _, err := encodeScheduleDeviceParameterValue(tc.maxW/10+1, field); err == nil {
-			t.Fatalf("model=%s должен отклонять мощность выше %d W", tc.modelKey, tc.maxW)
+		if _, _, err := encodeScheduleDeviceParameterValue(65535, field); err != nil {
+			t.Fatalf("model=%s должен принимать технический максимум 655350 W: %v", tc.modelKey, err)
+		}
+		if _, _, err := encodeScheduleDeviceParameterValue(65536, field); err == nil {
+			t.Fatalf("model=%s должен отклонять значение выше uint16", tc.modelKey)
 		}
 	}
 }
@@ -164,9 +166,14 @@ func TestScheduleValidationRejectsBadTimeChargeModeAndPower(t *testing.T) {
 		t.Fatal("charge mode 4 must be rejected")
 	}
 	payload.Days[0].Hours[0].ChargeMode = 3
-	payload.Days[0].Hours[0].SellModeKW = 2501
+	payload.Days[0].Hours[0].SellModeKW = 65535
+	payload.Days[0].Hours[0].GridExportLimit = 65535
+	if err := validateScheduleJSONForModels(marshal(), []InverterModelDefinition{model}); err != nil {
+		t.Fatalf("технический максимум должен приниматься независимо от номинала модели: %v", err)
+	}
+	payload.Days[0].Hours[0].SellModeKW = 65536
 	if err := validateScheduleJSONForModels(marshal(), []InverterModelDefinition{model}); err == nil {
-		t.Fatal("25010 W must be rejected for 25 kW")
+		t.Fatal("значение выше технического uint16-предела должно отклоняться")
 	}
 }
 
@@ -290,12 +297,9 @@ func TestRawWriteCannotBypassKnownReadOnlyOrBounds(t *testing.T) {
 	if _, _, matched, err := validateRawProfileWrite(params, 104, 100); !matched || err == nil {
 		t.Fatalf("known read-only register 104 must be blocked: matched=%v err=%v", matched, err)
 	}
-	if _, _, matched, err := validateRawProfileWrite(params, 154, 2501); !matched || err == nil {
-		t.Fatalf("raw power above 25kW must be blocked: matched=%v err=%v", matched, err)
-	}
-	code, logical, matched, err := validateRawProfileWrite(params, 154, 2500)
-	if err != nil || !matched || code != "sell_mode_kw_point_1" || logical != 25000 {
-		t.Fatalf("valid raw power rejected: code=%s logical=%v matched=%v err=%v", code, logical, matched, err)
+	code, logical, matched, err := validateRawProfileWrite(params, 154, 65535)
+	if err != nil || !matched || code != "sell_mode_kw_point_1" || logical != 655350 {
+		t.Fatalf("technical uint16 maximum rejected: code=%s logical=%v matched=%v err=%v", code, logical, matched, err)
 	}
 	if _, _, matched, err := validateRawProfileWrite(params, 65530, 1); matched || err != nil {
 		t.Fatalf("unknown engineering address should remain unmatched: matched=%v err=%v", matched, err)
@@ -330,6 +334,10 @@ func TestEveryWritableProfileFieldIsBoundedAndBitfieldsAreMasked(t *testing.T) {
 		if offGrid.WriteMode != "mapped_masked_bits" || offGrid.WriteBitmask == nil || *offGrid.WriteBitmask != 12 || offGrid.WriteValues["0"] != 8 || offGrid.WriteValues["1"] != 12 {
 			t.Fatalf("%s: register 179 forced off-grid bitfield is unsafe", model.Key)
 		}
+		gridPeak := byCode["grid_peak_shaving_enabled"]
+		if gridPeak.ModbusAddress != 178 || gridPeak.WriteMode != "mapped_masked_bits" || gridPeak.WriteBitmask == nil || *gridPeak.WriteBitmask != 0x30 || gridPeak.WriteValues["0"] != 0x10 || gridPeak.WriteValues["1"] != 0x30 {
+			t.Fatalf("%s: register 178 grid peak shaving bitfield is unsafe", model.Key)
+		}
 	}
 }
 
@@ -342,5 +350,11 @@ func TestMergeMaskedRegisterValuePreservesUnrelatedBits(t *testing.T) {
 	}
 	if got := mergeMaskedRegisterValue(0x0101, 0x0000, 0x0001); got != 0x0100 {
 		t.Fatalf("battery wake-up must preserve battery2 bit8: got 0x%04X", got)
+	}
+	if got := mergeMaskedRegisterValue(0x010F, 0x0030, 0x0030); got != 0x013F {
+		t.Fatalf("grid peak enable must preserve bits outside 4-5: got 0x%04X", got)
+	}
+	if got := mergeMaskedRegisterValue(0x013F, 0x0010, 0x0030); got != 0x011F {
+		t.Fatalf("grid peak disable must preserve bit4 and unrelated bits: got 0x%04X", got)
 	}
 }

@@ -62,7 +62,7 @@ func (a *App) validateTemplateScheduleForSave(templateID int64, scheduleJSON str
 func templateEditorPowerLimits() (int, int) {
 	models, err := availableInverterModels()
 	if err != nil {
-		return 60000, 60000
+		return 655350, 655350
 	}
 	powerMax, exportMax := 0, 0
 	for _, model := range models {

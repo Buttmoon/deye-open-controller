@@ -46,9 +46,11 @@ type DeviceParameterFields struct {
 	EnforceBounds            bool     `json:"enforce_bounds,omitempty"`
 	Signed                   bool     `json:"signed,omitempty"`
 
-	Source     string `json:"source,omitempty"`
-	Confidence string `json:"confidence,omitempty"`
-	Notes      string `json:"notes,omitempty"`
+	Source          string `json:"source,omitempty"`
+	Confidence      string `json:"confidence,omitempty"`
+	Notes           string `json:"notes,omitempty"`
+	ProtocolVersion string `json:"protocol_version,omitempty"`
+	ProfileVariant  string `json:"profile_variant,omitempty"`
 
 	Suffix      *string `json:"suffix"`
 	Name        string  `json:"name"`
@@ -72,6 +74,10 @@ type DeviceParameterFields struct {
 	WriteBitmask  *uint16           `json:"write_bitmask,omitempty"`
 	WriteValues   map[string]uint16 `json:"write_values,omitempty"`
 	AllowedValues []int             `json:"allowed_values,omitempty"`
+	// ValueKind: boolean | uint | int | enum | bitmask | scaled | multi | time.
+	// Empty means "infer from the other fields" (see inferRegisterValueKind).
+	ValueKind string           `json:"value_kind,omitempty"`
+	Bits      []RegisterBitDef `json:"bits,omitempty"`
 
 	IsWritable bool `json:"is_writable"`
 
@@ -118,6 +124,7 @@ func LoadDeviceParameters(path string) ([]DeviceParameterFixture, error) {
 	if err := json.Unmarshal(data, &params); err != nil {
 		return nil, err
 	}
+	enrichProfileBitLayouts(params)
 
 	deviceParametersCache.Lock()
 	if deviceParametersCache.entries == nil {
@@ -238,7 +245,7 @@ func encodeDeviceParameterValue(value float64, fields DeviceParameterFields) (ui
 			return 0, fmt.Errorf("значение %.4f не является временем HHMM 00:00–23:55 с шагом 5 минут", value)
 		}
 	}
-	if len(fields.AllowedValues) > 0 {
+	if len(fields.AllowedValues) > 0 && !allowedValuesSupersededByBitLayout(fields) {
 		allowed := false
 		for _, candidate := range fields.AllowedValues {
 			if math.Abs(value-float64(candidate)) < 0.000001 {
@@ -281,6 +288,11 @@ func encodeDeviceParameterValue(value float64, fields DeviceParameterFields) (ui
 	}
 	if rawRounded < 0 || rawRounded > 65535 {
 		return 0, fmt.Errorf("raw %.0f вне диапазона uint16", rawRounded)
+	}
+	if strings.EqualFold(strings.TrimSpace(fields.WriteMode), "masked_bits") && fields.WriteBitmask != nil && *fields.WriteBitmask != 0 {
+		if extra := uint16(rawRounded) &^ *fields.WriteBitmask; extra != 0 {
+			return 0, fmt.Errorf("raw %d затрагивает биты 0x%04X вне маски записи 0x%04X", uint16(rawRounded), extra, *fields.WriteBitmask)
+		}
 	}
 	return uint16(rawRounded), nil
 }

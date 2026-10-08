@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const defaultScheduleDays = 31
@@ -1082,12 +1083,29 @@ func useTimerMaskFromFlags(enabled bool, weekdays ...bool) int {
 	return mask
 }
 
+var lastUseTimerMask struct {
+	sync.Mutex
+	raw  string
+	mask int
+	ok   bool
+}
+
 func scheduleUseTimerMask(raw string) int {
-	payload, err := parseSchedulePayloadLoose(raw)
-	if err != nil {
-		return 0
+	lastUseTimerMask.Lock()
+	if lastUseTimerMask.ok && lastUseTimerMask.raw == raw {
+		mask := lastUseTimerMask.mask
+		lastUseTimerMask.Unlock()
+		return mask
 	}
-	return normalizeUseTimerMask(payload.UseTimerMask)
+	lastUseTimerMask.Unlock()
+	mask := 0
+	if payload, err := parseSchedulePayloadLoose(raw); err == nil {
+		mask = normalizeUseTimerMask(payload.UseTimerMask)
+	}
+	lastUseTimerMask.Lock()
+	lastUseTimerMask.raw, lastUseTimerMask.mask, lastUseTimerMask.ok = raw, mask, true
+	lastUseTimerMask.Unlock()
+	return mask
 }
 
 func scheduleUseTimerEnabled(raw string) bool {

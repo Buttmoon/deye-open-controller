@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"inverter-schedule/internal/models"
@@ -200,6 +201,14 @@ type dashboardRawLogLine struct {
 	FileName string
 }
 
+// latestLogRecordsCache keeps parsed tail records until the newest log file changes.
+// Callers must treat returned records as read-only.
+var latestLogRecordsCache struct {
+	sync.Mutex
+	key     string
+	records []dashboardRawLogLine
+}
+
 func latestNInverterLogRecords(limit int) []dashboardRawLogLine {
 	if limit <= 0 {
 		limit = 1
@@ -208,6 +217,26 @@ func latestNInverterLogRecords(limit int) []dashboardRawLogLine {
 	if err != nil || len(files) == 0 {
 		return nil
 	}
+	key := fmt.Sprintf("%s|%d|%s|%d", files[0].Name, files[0].SizeBytes, files[0].ModifiedUTC, len(files))
+	latestLogRecordsCache.Lock()
+	if latestLogRecordsCache.key == key && len(latestLogRecordsCache.records) >= limit {
+		out := append([]dashboardRawLogLine(nil), latestLogRecordsCache.records[:limit]...)
+		latestLogRecordsCache.Unlock()
+		return out
+	}
+	latestLogRecordsCache.Unlock()
+	result := readLatestInverterLogRecords(files, max(limit, 8))
+	latestLogRecordsCache.Lock()
+	latestLogRecordsCache.key = key
+	latestLogRecordsCache.records = result
+	latestLogRecordsCache.Unlock()
+	if len(result) > limit {
+		result = result[:limit]
+	}
+	return append([]dashboardRawLogLine(nil), result...)
+}
+
+func readLatestInverterLogRecords(files []InverterLogFileInfo, limit int) []dashboardRawLogLine {
 	result := make([]dashboardRawLogLine, 0, limit)
 	tailLimit := limit*10 + 50
 	if tailLimit < 100 {

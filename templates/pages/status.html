@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008">
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="page-title">
+      <div>
+        <h1>Состояние инверторов</h1>
+        <p class="muted mb-0">Открытие страницы не обращается к инверторам: показываются сохранённые данные с отметкой времени. Живой опрос выполняется только кнопкой «Обновить» или фоновым опросом, если он включён. Показаны только параметры, которые есть в профиле модели.</p>
+      </div>
+      <div class="row">
+        <button type="button" class="btn btn-primary" id="refreshAll">Обновить все</button>
+      </div>
+    </div>
+    <div class="row small muted" style="margin-top:8px;gap:16px">
+      <span>Фоновый опрос: <b>{{if .BackgroundPolling}}включён, каждые {{.PollInterval}} с{{else}}выключен{{end}}</b></span>
+      <span>Данные считаются устаревшими через {{.StaleAfter}} с</span>
+      <span>«Не в сети» — после {{.OfflineAfter}} неудачных опросов подряд</span>
+      <a href="/settings#features">Изменить в настройках</a>
+    </div>
+  </div>
+  <div class="status-grid" id="statusGrid"
+       data-background="{{if .BackgroundPolling}}1{{else}}0{{end}}" data-interval="{{.PollInterval}}">
+    <div class="card"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>
+  </div>
+</div>
+<script src="/static/js/common.js?v=20261008"></script>
+<script src="/static/js/status.js?v=20261008"></script>
+</body>
+</html>

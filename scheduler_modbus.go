@@ -1266,7 +1266,63 @@ func (a *App) sendScheduleExecutionPlanToInverterWithCommand(item runtimeSchedul
 	return a.sendScheduleRegisterValuesToInverterWithCommand(item, plan.Values, command)
 }
 
+// sendScheduleRegisterValuesToInverterWithCommand writes a schedule and records
+// the execution with one history row per register (read-back status included).
 func (a *App) sendScheduleRegisterValuesToInverterWithCommand(item runtimeScheduledItem, values []ScheduleRegisterValue, command string) ([]ScheduleWriteResult, error) {
+	started := time.Now()
+	results, err := a.writeScheduleRegisterValues(item, values, command)
+	a.recordScheduleExecutionHistory(item, command, results, err, time.Since(started))
+	return results, err
+}
+
+func (a *App) recordScheduleExecutionHistory(item runtimeScheduledItem, command string, results []ScheduleWriteResult, err error, duration time.Duration) {
+	summary := summarizeScheduleWriteResults(results)
+	status := histVerified
+	switch {
+	case err != nil && summary.OK > 0:
+		status = histPartial
+	case err != nil:
+		status = histError
+	}
+	jobRef := "schedule:" + item.ScheduleName
+	if item.TemplateName != "" {
+		jobRef += " template:" + item.TemplateName
+	}
+	errText := ""
+	if err != nil {
+		errText = err.Error()
+	}
+	opID := a.recordHistory(HistoryEntry{OperationType: opScheduleExecution, Status: status, InverterID: item.InverterID, Initiator: "планировщик (" + command + ")",
+		JobRef: jobRef, DurationMS: duration.Milliseconds(), Error: errText,
+		Message: fmt.Sprintf("Запись расписания: подтверждено %d, ошибок %d, пропущено %d из %d", summary.OK, summary.Error, summary.Skipped, summary.Total),
+		Details: map[string]any{"command": command, "summary": summary}})
+	for _, r := range results {
+		st := histVerified
+		switch r.Status {
+		case "skipped":
+			st = histSkipped
+		case "ok":
+			if !r.Verified {
+				st = histUnverified
+			}
+		default:
+			st = histError
+		}
+		var actual *int
+		if r.Status == "ok" || r.ActualValue != 0 {
+			actual = intPtr(int(r.ActualValue))
+		}
+		msg := r.Phase
+		if r.Note != "" {
+			msg = strings.TrimSpace(msg + " · " + r.Note)
+		}
+		a.recordHistory(HistoryEntry{ParentID: opID, OperationType: opRegisterWrite, Status: st, InverterID: item.InverterID, Initiator: "планировщик",
+			JobRef: jobRef, RegisterAddress: intPtr(int(r.Address)), RegisterCode: r.Code, RequestedValue: intPtr(r.RequestedValue),
+			WrittenValue: intPtr(int(r.Value)), VerifiedValue: actual, Attempt: r.Attempts, Message: msg, Error: r.Error})
+	}
+}
+
+func (a *App) writeScheduleRegisterValues(item runtimeScheduledItem, values []ScheduleRegisterValue, command string) ([]ScheduleWriteResult, error) {
 	a.modbusMu.Lock()
 	defer a.modbusMu.Unlock()
 

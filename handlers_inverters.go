@@ -120,9 +120,15 @@ func (a *App) updateInverterSettingsHandler(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: err.Error()})
 		return
 	}
-	if _, _, err := loadDeviceParametersForModel(modelKey); err != nil {
-		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: "Профиль модели не прошёл проверку: " + err.Error()})
+	// Only a structurally broken profile prevents selecting the model. The
+	// stricter write check keeps gating writes on its own and is reported here.
+	if _, _, err := loadDeviceParametersForModelStructural(modelKey); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: "Профиль модели не читается: " + err.Error()})
 		return
+	}
+	note := ""
+	if _, _, err := loadDeviceParametersForModel(modelKey); err != nil {
+		note = " Внимание: проверка безопасности записи для профиля не пройдена — чтение работает, запись расписаний для этой модели заблокирована (" + err.Error() + ")."
 	}
 	if err := a.updateInverterSettings(id, name, modelKey, profileWriteConfirmed); err != nil {
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{OK: false, Message: "Ошибка сохранения настроек инвертора: " + err.Error()})
@@ -131,5 +137,5 @@ func (a *App) updateInverterSettingsHandler(w http.ResponseWriter, r *http.Reque
 	a.recreateActiveSchedulerTask("inverter model changed")
 	a.restartInverterLogger("inverter model changed")
 	a.appendAppLog("info", "inverter settings updated", map[string]any{"component": "inverters", "inverter_id": id, "model_key": model.Key, "parameters_file": model.ParametersFile})
-	writeJSON(w, http.StatusOK, jsonResponse{OK: true, Message: fmt.Sprintf("Настройки сохранены: %s", model.Name)})
+	writeJSON(w, http.StatusOK, jsonResponse{OK: true, Message: fmt.Sprintf("Настройки сохранены: %s.", model.Name) + note})
 }

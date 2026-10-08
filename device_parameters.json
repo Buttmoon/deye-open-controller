@@ -186,7 +186,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "register_type": "holding",
       "modbus_address": 154,
@@ -204,11 +204,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -231,7 +231,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "created_at": null,
       "updated_at": null,
@@ -244,11 +244,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -271,7 +271,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "created_at": null,
       "updated_at": null,
@@ -284,11 +284,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -311,7 +311,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "created_at": null,
       "updated_at": null,
@@ -324,11 +324,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -351,7 +351,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "created_at": null,
       "updated_at": null,
@@ -364,11 +364,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -391,7 +391,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "created_at": null,
       "updated_at": null,
@@ -404,11 +404,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -1363,7 +1363,7 @@
       "type": "int",
       "enum_values": null,
       "min": 0,
-      "max": 32000,
+      "max": 655350,
       "step": 10,
       "created_at": null,
       "updated_at": null,
@@ -1376,11 +1376,11 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Model-rated application cap removed for schedule editing/import; technical uint16 boundary 65535 raw (655350 W) remains.",
       "schedule_input_scale_factor": 10,
       "write_scale_factor": 10,
       "raw_min": 0,
-      "raw_max": 3200,
+      "raw_max": 65535,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4"
@@ -1556,16 +1556,7 @@
       "description": "Register 146 TOU enable/day mask: bit0 enable, bit1 Mon ... bit7 Sun; bit8 preserved",
       "value": null,
       "type": "int",
-      "enum_values": [
-        {
-          "value": 0,
-          "label": "Off"
-        },
-        {
-          "value": 1,
-          "label": "On"
-        }
-      ],
+      "enum_values": null,
       "min": 0,
       "max": 255,
       "step": 1,
@@ -1579,7 +1570,7 @@
       "is_active": true,
       "source": "Deye MODBUS RTU three-phase energy storage protocol legacy + schedule addresses compatible with V105.4; Deye 60 kW legacy project map",
       "confidence": "existing_project_configuration_not_model_verified",
-      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write.",
+      "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Value is validated against profile raw/logical bounds before Modbus write. Битовая маска: допустимо любое сочетание битов 0–7 (raw 0–255). Ограничение allowed_values=[0,1] было ошибочным.",
       "raw_min": 0,
       "raw_max": 255,
       "enforce_bounds": true,
@@ -1587,9 +1578,104 @@
       "write_bitmask": 255,
       "profile_variant": "Deye 60 kW legacy project map",
       "protocol_version": "legacy + schedule addresses compatible with V105.4",
-      "allowed_values": [
-        0,
-        1
+      "value_kind": "bitmask",
+      "bits": [
+        {
+          "bit": 0,
+          "width": 1,
+          "name": "Таймер TOU включён",
+          "description": "Общий выключатель программ Time of Use (bit0).",
+          "values": {
+            "0": "выключен",
+            "1": "включён"
+          },
+          "writable": true
+        },
+        {
+          "bit": 1,
+          "width": 1,
+          "name": "Программы активны: Понедельник",
+          "description": "Бит 1: программы TOU применяются в день «Понедельник».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 2,
+          "width": 1,
+          "name": "Программы активны: Вторник",
+          "description": "Бит 2: программы TOU применяются в день «Вторник».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 3,
+          "width": 1,
+          "name": "Программы активны: Среда",
+          "description": "Бит 3: программы TOU применяются в день «Среда».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 4,
+          "width": 1,
+          "name": "Программы активны: Четверг",
+          "description": "Бит 4: программы TOU применяются в день «Четверг».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 5,
+          "width": 1,
+          "name": "Программы активны: Пятница",
+          "description": "Бит 5: программы TOU применяются в день «Пятница».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 6,
+          "width": 1,
+          "name": "Программы активны: Суббота",
+          "description": "Бит 6: программы TOU применяются в день «Суббота».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 7,
+          "width": 1,
+          "name": "Программы активны: Воскресенье",
+          "description": "Бит 7: программы TOU применяются в день «Воскресенье».",
+          "values": {
+            "0": "нет",
+            "1": "да"
+          },
+          "writable": true
+        },
+        {
+          "bit": 8,
+          "width": 1,
+          "name": "Бит 8 (не изменяется приложением)",
+          "description": "Сохраняется при записи (write_bitmask=0x00FF). Назначение зависит от прошивки и в профиле не подтверждено.",
+          "values": {},
+          "writable": false
+        }
       ]
     }
   },
@@ -4773,7 +4859,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -4817,7 +4904,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -4861,7 +4949,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -4905,7 +4994,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -4949,7 +5039,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -4993,7 +5084,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -5037,7 +5129,8 @@
       "confidence": "existing_project_configuration_not_model_verified",
       "notes": "Профиль Deye 60 kW legacy project map. Адрес, тип, масштаб и правила записи задаются этим JSON-файлом. Отдельная запись дня отключена: регистр 146 является общей битовой маской.",
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "boolean"
     }
   },
   {
@@ -5553,6 +5646,75 @@
   },
   {
     "model": "app.deviceparameter",
+    "pk": "01f18d4b-9afc-52d4-9c13-c74f5a5c7db3",
+    "fields": {
+      "device_config_uuid": "aefdb0bf-7860-5e51-976f-3b41c1479821",
+      "code": "grid_peak_shaving_enabled",
+      "name": "Grid Peak Shaving",
+      "description": "Register 178 bits4-5: 01=disabled, 11=enabled; all unrelated bits are preserved.",
+      "value": null,
+      "type": "int",
+      "enum_values": [
+        {
+          "value": 0,
+          "label": "Disabled"
+        },
+        {
+          "value": 1,
+          "label": "Enabled"
+        }
+      ],
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "register_type": "holding",
+      "modbus_address": 178,
+      "register_count": 1,
+      "scale_factor": null,
+      "suffix": null,
+      "created_at": null,
+      "updated_at": null,
+      "chart_line_color": "#f59e0b",
+      "bitmask": null,
+      "is_writable": true,
+      "show_in_charts": true,
+      "show_in_table": true,
+      "display_decimal_places": null,
+      "is_active": true,
+      "source": "Deye three-phase Modbus register map: Grid Peak Shaving in register 178 bits4-5",
+      "confidence": "manufacturer_protocol_requires_read_only_device_validation",
+      "notes": "Safe read-modify-write on mask 0x0030; logical 0->0b01 and 1->0b11 in bits4-5. Other register 178 flags are preserved.",
+      "raw_min": 0,
+      "raw_max": 1,
+      "enforce_bounds": true,
+      "allowed_values": [
+        0,
+        1
+      ],
+      "write_mode": "mapped_masked_bits",
+      "write_bitmask": 48,
+      "write_values": {
+        "0": 16,
+        "1": 48
+      },
+      "value_kind": "enum",
+      "bits": [
+        {
+          "bit": 4,
+          "width": 2,
+          "name": "Grid Peak Shaving",
+          "description": "Биты 4–5: 0b01 = выключено, 0b11 = включено. Остальные биты регистра 178 сохраняются (read-modify-write).",
+          "values": {
+            "1": "выключено (0b01)",
+            "3": "включено (0b11)"
+          },
+          "writable": true
+        }
+      ]
+    }
+  },
+  {
+    "model": "app.deviceparameter",
     "pk": "a98d3241-a2b7-5329-a462-99365adf767b",
     "fields": {
       "device_config_uuid": "aefdb0bf-7860-5e51-976f-3b41c1479821",
@@ -5644,7 +5806,8 @@
       "raw_max": 6000,
       "enforce_bounds": true,
       "profile_variant": "Deye 60 kW legacy project map",
-      "protocol_version": "legacy + schedule addresses compatible with V105.4"
+      "protocol_version": "legacy + schedule addresses compatible with V105.4",
+      "value_kind": "scaled"
     }
   },
   {
