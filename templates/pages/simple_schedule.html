@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/css/common.css?v=20260703c">
-  <link rel="stylesheet" href="/static/css/app.css?v=20261008d">
+  <link rel="stylesheet" href="/static/css/app.css?v=20261008e">
 </head>
 <body>
 <div id="popup" class="popup"></div>
@@ -36,7 +36,7 @@
     <h2>1. Шаблоны XLSX</h2>
     <p class="muted small">Тот же формат, что в расширенном редакторе: Day, Hour/Time, SellModeKW, ChargeMode, GridChargeEnabled, LoadLimitMode, PriorityLoad и колонки Use Timer.</p>
     <div class="field"><label for="ssTemplateSelect">Шаблон расписания</label>
-      <select id="ssTemplateSelect"><option value="">-- выбрать шаблон --</option>{{range .Templates}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+      <select id="ssTemplateSelect" class="hour-select"><option value="">-- выбрать шаблон --</option>{{range .Templates}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
     <div class="button-row">
       <button class="btn btn-secondary" type="button" id="ssUploadTemplateBtn">Загрузить шаблон</button>
       <input type="file" id="ssUploadTemplateFile" class="hidden" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
@@ -54,10 +54,10 @@
   <div class="card">
     <h2>2. Период расписания</h2>
     <div class="filters" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
-      <div class="field"><label for="ssMonth">Месяц</label><input type="month" id="ssMonth" value="{{.DefaultMonth}}"></div>
-      <div class="field"><label for="ssName">Название расписания</label><input type="text" id="ssName" value="Упрощённое расписание"></div>
-      <div class="field"><label for="ssDateFrom">Действует с (необязательно)</label><input type="date" id="ssDateFrom"></div>
-      <div class="field"><label for="ssDateTo">по (необязательно)</label><input type="date" id="ssDateTo"></div>
+      <div class="field"><label for="ssMonth">Месяц</label><input class="hour-input" type="month" id="ssMonth" value="{{.DefaultMonth}}"></div>
+      <div class="field"><label for="ssName">Название расписания</label><input class="hour-input" type="text" id="ssName" value="Упрощённое расписание"></div>
+      <div class="field"><label for="ssDateFrom">Действует с (необязательно)</label><input class="hour-input" type="date" id="ssDateFrom"></div>
+      <div class="field"><label for="ssDateTo">по (необязательно)</label><input class="hour-input" type="date" id="ssDateTo"></div>
     </div>
     <div class="field"><label>Дни недели (не выбрано — каждый день)</label>
       <div class="weekday-picker" id="ssWeekdays">
@@ -82,21 +82,22 @@
     <h2>3. Параметры работы</h2>
     <p class="muted small">Значения по умолчанию для новых интервалов. У каждого интервала ниже можно задать свои параметры.</p>
     <div class="filters" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
-      <div class="field"><label for="ssDefGrid">Заряд от сети <span class="hint" title="Регистр 130">ⓘ</span></label>
-        <select id="ssDefGrid"><option value="0">Выкл</option><option value="1">Вкл</option></select></div>
-      <div class="field"><label for="ssDefLL">Ограничение нагрузки <span class="hint" title="Регистр 142 — режим, не ватты">ⓘ</span></label>
-        <select id="ssDefLL">
+      <div class="field"><label for="ssDefGrid">Grid Charge <span class="hint" title="Регистр 130">ⓘ</span></label>
+        <select id="ssDefGrid" class="hour-select"><option value="0">Выкл</option><option value="1">Вкл</option></select></div>
+      <div class="field"><label for="ssDefLL">Load Limit <span class="hint" title="Регистр 142 — режим, не ватты">ⓘ</span></label>
+        <select id="ssDefLL" class="hour-select">
           <option value="0">Selling first</option>
           <option value="1">Zero export load</option>
           <option value="2">Zero export CT</option>
         </select></div>
-      <div class="field"><label for="ssDefPL">Приоритет нагрузки <span class="hint" title="Регистр 141">ⓘ</span></label>
-        <select id="ssDefPL">
+      <div class="field"><label for="ssDefPL">Priority Load <span class="hint" title="Регистр 141">ⓘ</span></label>
+        <select id="ssDefPL" class="hour-select">
           <option value="0">Приоритет нагрузки (Load First)</option>
           <option value="1">Приоритет батареи (Battery First)</option>
         </select></div>
-      <div class="field"><label for="ssDefPower">Мощность TOU, Вт</label><input type="number" id="ssDefPower" min="0" step="10" value="0"></div>
-      <div class="field"><label for="ssDefSOC">SOC батареи, %</label><input type="number" id="ssDefSOC" min="0" max="100" value="20"></div>
+      <div class="field"><label for="ssDefPower">Power, W</label><input class="hour-input" type="number" id="ssDefPower" min="0" step="10" value="0"></div>
+      <div class="field"><label for="ssDefSOC">Capacity (SOC), %</label><input class="hour-input" type="number" id="ssDefSOC" min="0" max="100" value="20"></div>
+      <div class="field"><label for="ssDefExport">Grid Export Limit, W</label><input class="hour-input" type="number" id="ssDefExport" min="0" step="10" value="0"></div>
     </div>
     <div id="ssLimits" class="small muted"></div>
   </div>
@@ -110,15 +111,15 @@
         <button type="button" class="btn btn-secondary btn-sm" id="ssMergeAdj">Объединить одинаковые</button>
       </div>
     </div>
-    <p class="small muted">Время 24 ч, интервалы через полночь допустимы (например 18:00–00:00). Число логических интервалов не ограничено; у инвертора 6 аппаратных программ TOU — при превышении будет предупреждение.</p>
+    <p class="small muted">Шаг времени — <strong>5 минут</strong> (00:00…23:55, конец также 24:00). Интервалы через полночь допустимы (например 18:15–00:30). Частичные часы сохраняются как HH:00 + 5‑минутные переопределения (как в расширенном режиме). У инвертора 6 аппаратных программ TOU — при превышении будет предупреждение.</p>
     <div id="ssTimelineLocal" class="day-timeline"></div>
     <div class="table-wrap" style="overflow:auto;margin-top:12px">
-      <table class="data-table interval-table" id="ssIntervalTable" style="display:none;width:100%">
+      <table class="interval-table" id="ssIntervalTable" style="display:none;width:100%">
         <thead>
           <tr>
-            <th>#</th><th>Подпись</th><th>Начало</th><th>Конец</th>
-            <th>Заряд от сети</th><th>Ограничение нагрузки</th><th>Приоритет</th>
-            <th>Мощность, Вт</th><th>SOC, %</th><th></th>
+            <th>Время</th><th>Подпись</th><th>Начало</th><th>Конец</th>
+            <th>Grid Charge</th><th>Load Limit</th><th>Priority Load</th>
+            <th>Power</th><th>Capacity</th><th>Grid Export Limit</th><th></th>
           </tr>
         </thead>
         <tbody id="ssIntervals"></tbody>
@@ -162,8 +163,8 @@
 <script id="ssModels" type="application/json">{{.ModelsJSON}}</script>
 <script id="ssChargeModes" type="application/json">{{.ChargeModesJSON}}</script>
 <script>window.schedulePowerMaxW = {{.SchedulePowerMaxW}}; window.gridExportMaxW = {{.GridExportMaxW}};</script>
-<script src="/static/js/common.js?v=20261008d"></script>
-<script src="/static/js/schedule_viz.js?v=20261008d"></script>
-<script src="/static/js/simple_schedule.js?v=20261008d"></script>
+<script src="/static/js/common.js?v=20261008e"></script>
+<script src="/static/js/schedule_viz.js?v=20261008e"></script>
+<script src="/static/js/simple_schedule.js?v=20261008e"></script>
 </body>
 </html>

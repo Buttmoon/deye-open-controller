@@ -33,16 +33,30 @@
     else App.toast(msg, type === "error" ? "error" : type === "success" ? "success" : "info");
   }
 
-  function timeOptions(sel) {
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function normalizeTimeValue(t, allow24) {
+    if (!t) return "00:00";
+    if (t === "24:00" && allow24) return "24:00";
+    const [hs, ms] = String(t).split(":");
+    let h = Number(hs) || 0, m = Number(ms) || 0;
+    m = Math.round(m / 5) * 5;
+    if (m === 60) { h += 1; m = 0; }
+    if (allow24 && h === 24 && m === 0) return "24:00";
+    if (h > 23) h = 23;
+    if (m > 55) m = 55;
+    return `${pad2(h)}:${pad2(m)}`;
+  }
+  function timeOptions(sel, allow24End) {
+    sel = normalizeTimeValue(sel, !!allow24End);
     const parts = [];
     for (let h = 0; h < 24; h++) {
-      const v = `${String(h).padStart(2, "0")}:00`;
-      parts.push(`<option value="${v}" ${v === sel ? "selected" : ""}>${v}</option>`);
+      for (let m = 0; m < 60; m += 5) {
+        const v = `${pad2(h)}:${pad2(m)}`;
+        parts.push(`<option value="${v}" ${v === sel ? "selected" : ""}>${v}</option>`);
+      }
     }
-    parts.push(`<option value="24:00" ${sel === "24:00" ? "selected" : ""}>24:00</option>`);
-    // allow 00:00 as exclusive end for midnight-crossing
-    if (sel === "00:00" && !parts.some(p => p.includes('value="00:00"') && p.includes("selected"))) {
-      /* already have 00:00 as start */
+    if (allow24End) {
+      parts.push(`<option value="24:00" ${sel === "24:00" ? "selected" : ""}>24:00</option>`);
     }
     return parts.join("");
   }
@@ -53,7 +67,8 @@
       load_limit_mode: Number($("ssDefLL").value) || 0,
       priority_load: Number($("ssDefPL").value) || 0,
       power_w: Number($("ssDefPower").value) || 0,
-      battery_soc: Number($("ssDefSOC").value) || 0
+      battery_soc: Number($("ssDefSOC").value) || 0,
+      grid_export_limit_w: Number($("ssDefExport")?.value) || 0
     };
   }
 
@@ -63,19 +78,22 @@
 
   function newInterval(o) {
     const d = defaultsFromForm();
-    return Object.assign({
+    const base = Object.assign({
       name: "", start_time: "00:00", end_time: "06:00",
       grid_charge_enabled: d.grid_charge_enabled,
       load_limit_mode: d.load_limit_mode,
       priority_load: d.priority_load,
       power_w: d.power_w,
       battery_soc: d.battery_soc,
-      grid_export_limit_w: 0,
+      grid_export_limit_w: d.grid_export_limit_w,
       mode: "custom",
       weekdays: periodWeekdays(),
       date_from: $("ssDateFrom").value || "",
       date_to: $("ssDateTo").value || ""
     }, o || {});
+    base.start_time = normalizeTimeValue(base.start_time, false);
+    base.end_time = normalizeTimeValue(base.end_time, true);
+    return base;
   }
 
   function markDirty(v = true) {
@@ -89,16 +107,18 @@
 
   function rowHTML(r, i) {
     const wrap = crossesMidnight(r);
-    return `<tr data-i="${i}" class="interval-row">
-      <td class="mono">${i + 1}</td>
-      <td><input type="text" data-f="name" value="${esc(r.name)}" placeholder="подпись" style="min-width:110px"></td>
-      <td><select data-f="start_time">${timeOptions(r.start_time)}</select></td>
-      <td><select data-f="end_time">${timeOptions(r.end_time)}</select>${wrap ? '<div class="badge badge-info" style="margin-top:4px">через полночь</div>' : ""}</td>
-      <td><label class="switch"><input type="checkbox" data-f="grid_charge_enabled" ${r.grid_charge_enabled ? "checked" : ""}><span>${r.grid_charge_enabled ? "Вкл" : "Выкл"}</span></label></td>
-      <td><select data-f="load_limit_mode" data-num="1">${llOpts.map(o => `<option value="${o.value}" ${Number(r.load_limit_mode) === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select></td>
-      <td><select data-f="priority_load" data-num="1">${prOpts.map(o => `<option value="${o.value}" ${Number(r.priority_load) === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select></td>
-      <td><input type="number" min="0" step="10" data-f="power_w" data-num="1" value="${esc(r.power_w)}" style="width:96px"></td>
-      <td><input type="number" min="0" max="100" data-f="battery_soc" data-num="1" value="${esc(r.battery_soc)}" style="width:72px"></td>
+    const partial = !String(r.start_time || "").endsWith(":00") || (!String(r.end_time || "").endsWith(":00") && r.end_time !== "24:00");
+    return `<tr data-i="${i}" class="interval-row${partial ? " custom-slot-row" : ""}">
+      <td class="hour-label-cell mono">#${i + 1}${partial ? '<div class="badge badge-info" style="margin-top:4px">5 мин</div>' : ""}</td>
+      <td><input class="hour-input" type="text" data-f="name" value="${esc(r.name)}" placeholder="подпись"></td>
+      <td><select class="hour-select" data-f="start_time">${timeOptions(r.start_time, false)}</select></td>
+      <td><select class="hour-select" data-f="end_time">${timeOptions(r.end_time, true)}</select>${wrap ? '<div class="badge badge-info" style="margin-top:4px">через полночь</div>' : ""}</td>
+      <td><label class="mode-check"><input type="checkbox" data-f="grid_charge_enabled" ${r.grid_charge_enabled ? "checked" : ""}> Grid</label></td>
+      <td><select class="hour-select" data-f="load_limit_mode" data-num="1">${llOpts.map(o => `<option value="${o.value}" ${Number(r.load_limit_mode) === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select></td>
+      <td><select class="hour-select" data-f="priority_load" data-num="1">${prOpts.map(o => `<option value="${o.value}" ${Number(r.priority_load) === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select></td>
+      <td><input class="hour-input" type="number" min="0" step="10" data-f="power_w" data-num="1" value="${esc(r.power_w)}"></td>
+      <td><input class="hour-input" type="number" min="0" max="100" data-f="battery_soc" data-num="1" value="${esc(r.battery_soc)}"></td>
+      <td><input class="hour-input" type="number" min="0" step="10" data-f="grid_export_limit_w" data-num="1" value="${esc(r.grid_export_limit_w || 0)}"></td>
       <td class="nowrap">
         <button type="button" class="btn btn-secondary btn-xs" data-act="up" ${i === 0 ? "disabled" : ""} title="Выше">↑</button>
         <button type="button" class="btn btn-secondary btn-xs" data-act="down" ${i >= intervals.length - 1 ? "disabled" : ""} title="Ниже">↓</button>
@@ -168,8 +188,10 @@
     if (!el.dataset.f) return;
     if (el.type === "checkbox") {
       r[el.dataset.f] = el.checked;
-      const span = el.parentElement.querySelector("span");
-      if (span) span.textContent = el.checked ? "Вкл" : "Выкл";
+    } else if (el.dataset.f === "start_time") {
+      r.start_time = normalizeTimeValue(el.value, false);
+    } else if (el.dataset.f === "end_time") {
+      r.end_time = normalizeTimeValue(el.value, true);
     } else r[el.dataset.f] = el.dataset.num ? Number(el.value) : el.value;
     markDirty();
     if (el.dataset.f === "start_time" || el.dataset.f === "end_time") renderIntervals();
@@ -195,8 +217,9 @@
     const next = newInterval();
     if (last) {
       next.start_time = last.end_time === "24:00" ? "00:00" : last.end_time;
-      const h = Number(next.start_time.split(":")[0]);
-      next.end_time = h + 6 >= 24 ? "24:00" : `${String(h + 6).padStart(2, "0")}:00`;
+      const [hs, ms] = next.start_time.split(":").map(Number);
+      let end = hs * 60 + (ms || 0) + 6 * 60;
+      next.end_time = end >= 24 * 60 ? "24:00" : `${pad2(Math.floor(end / 60))}:${pad2(end % 60)}`;
     }
     intervals.push(next);
     markDirty();
@@ -312,7 +335,7 @@
     const res = data.result;
     lastResult = res;
     $("ssDescriptions").innerHTML = `<ol>${(res.descriptions || []).map(d => `<li>${esc(d)}</li>`).join("")}</ol>
-      <div class="muted">Часов: ${res.enabled_hours} · блоков/день: ${res.logical_day_slots || "—"} · аппаратных слотов TOU: ${res.hardware_slots || 6}</div>`;
+      <div class="muted">Часов с покрытием: ${res.enabled_hours} · блоков/день: ${res.logical_day_slots || "—"} · аппаратных слотов TOU: ${res.hardware_slots || 6}${(res.interval_spans || []).some(s => s.start_min % 60 || s.end_min % 60) ? " · есть интервалы с шагом 5 мин" : ""}</div>`;
     msgs.innerHTML =
       (res.exceeds_hardware_slots ? `<div class="notice notice-warn small"><b>Больше 6 аппаратных программ TOU.</b> Интервалы не обрезаются; планировщик применяет почасово.</div>` : "") +
       (res.validation_errors || []).map(e => `<div class="notice notice-err small">${esc(e)}</div>`).join("") +
@@ -372,11 +395,12 @@
     const rules = data.rules || [];
     intervals = rules.map(r => {
       const n = newInterval(r);
-      if (!n.start_time && r.start_hour !== undefined) {
-        n.start_time = `${String(r.start_hour).padStart(2, "0")}:00`;
-        n.end_time = r.end_hour === 24 ? "24:00" : `${String(r.end_hour).padStart(2, "0")}:00`;
-      }
+      if (r.start_time) n.start_time = normalizeTimeValue(r.start_time, false);
+      else if (r.start_hour !== undefined) n.start_time = `${pad2(r.start_hour)}:00`;
+      if (r.end_time) n.end_time = normalizeTimeValue(r.end_time, true);
+      else if (r.end_hour !== undefined) n.end_time = r.end_hour === 24 ? "24:00" : `${pad2(r.end_hour)}:00`;
       n.grid_charge_enabled = !!r.grid_charge_enabled;
+      if (r.grid_export_limit_w != null) n.grid_export_limit_w = Number(r.grid_export_limit_w) || 0;
       return n;
     });
     const an = data.analysis || {};

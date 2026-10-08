@@ -87,8 +87,10 @@ type SimpleScheduleRequest struct {
 }
 
 type simpleInterval struct {
-	Start      int    `json:"start"`
-	End        int    `json:"end"`
+	Start      int    `json:"start"`                // hour floor of start (compat)
+	End        int    `json:"end"`                  // hour ceil of exclusive end (compat)
+	StartMin   int    `json:"start_min"`            // minutes from midnight, inclusive
+	EndMin     int    `json:"end_min"`              // minutes from midnight, exclusive
 	Rule       int    `json:"rule"`
 	RuleName   string `json:"rule_name"`
 	Mode       string `json:"mode"`
@@ -96,6 +98,7 @@ type simpleInterval struct {
 	PowerW     int    `json:"power_w"`
 	SOC        int    `json:"soc"`
 	ChargeMode int    `json:"charge_mode"`
+	PartialHour bool  `json:"partial_hour,omitempty"`
 }
 
 type simpleDayPreview struct {
@@ -243,31 +246,48 @@ func (r SimpleRule) appliesOn(date time.Time) bool {
 	return false
 }
 
-// hours returns the hours covered on a given calendar day. Intervals that wrap
-// past midnight contribute their evening part to the start day and their
-// morning part to the next day.
+// hoursOn returns whole hours touched on a calendar day (compat / preview).
 func (r SimpleRule) hoursOn(date time.Time) []int {
+	seen := map[int]bool{}
+	for _, m := range r.minutesOn(date) {
+		seen[m/60] = true
+	}
+	out := make([]int, 0, len(seen))
+	for h := range seen {
+		out = append(out, h)
+	}
+	sort.Ints(out)
+	return out
+}
+
+// minutesOn returns 5-minute slot starts (0,5,…,1435) covered on a calendar day.
+// Midnight-wrapping intervals contribute the evening part to the start day and
+// the morning part to the following day.
+func (r SimpleRule) minutesOn(date time.Time) []int {
 	out := []int{}
-	end := r.EndHour
-	if end > r.StartHour {
+	add := func(from, to int) {
+		if from < 0 {
+			from = 0
+		}
+		if to > 24*60 {
+			to = 24 * 60
+		}
+		for m := from; m < to; m += 5 {
+			out = append(out, m)
+		}
+	}
+	if r.endMin > r.startMin {
 		if r.appliesOn(date) {
-			for h := r.StartHour; h < end; h++ {
-				out = append(out, h)
-			}
+			add(r.startMin, r.endMin)
 		}
 		return out
 	}
 	if r.appliesOn(date) {
-		for h := r.StartHour; h < 24; h++ {
-			out = append(out, h)
-		}
+		add(r.startMin, 24*60)
 	}
 	if r.appliesOn(date.AddDate(0, 0, -1)) {
-		for h := 0; h < end; h++ {
-			out = append(out, h)
-		}
+		add(0, r.endMin)
 	}
-	sort.Ints(out)
 	return out
 }
 
@@ -415,6 +435,7 @@ func buildSimpleSchedule(rules []SimpleRule, month time.Time, base *SchedulePayl
 	daysInMonth := month.AddDate(0, 1, -1).Day()
 	removedCustom := 0
 	overwritten := 0
+	partialHours := 0
 	for day := 1; day <= defaultScheduleDays; day++ {
 		di := day - 1
 		dayItem := &payload.Days[di]
@@ -423,66 +444,144 @@ func buildSimpleSchedule(rules []SimpleRule, month time.Time, base *SchedulePayl
 		}
 		date := time.Date(month.Year(), month.Month(), day, 0, 0, 0, 0, time.Local)
 		preview := simpleDayPreview{Day: day, Date: date.Format("2006-01-02"), Weekday: weekdayShort[isoWeekday(date)], Intervals: []simpleInterval{}}
-		owner := map[int]int{}
+		owner := map[int]int{} // minute-of-day → rule index
+		overwrittenHours := map[int]bool{}
 		for ri, r := range rules {
-			for _, h := range r.hoursOn(date) {
-				cfg := r.hourConfig(h, mask)
-				if prev, ok := owner[h]; ok {
-					pc := rules[prev].hourConfig(h, mask)
+			for _, m := range r.minutesOn(date) {
+				cfg := r.hourConfig(m/60, mask)
+				if prev, ok := owner[m]; ok {
+					pc := rules[prev].hourConfig(m/60, mask)
 					if pc != cfg {
-						res.Conflicts = append(res.Conflicts, simpleConflict{Date: preview.Date, Hour: h, RuleA: prev + 1, RuleB: ri + 1,
-							Message: fmt.Sprintf("%s %02d:00 — правила %d и %d задают разные значения; применяется правило %d", preview.Date, h, prev+1, ri+1, ri+1)})
+						res.Conflicts = append(res.Conflicts, simpleConflict{Date: preview.Date, Hour: m / 60, RuleA: prev + 1, RuleB: ri + 1,
+							Message: fmt.Sprintf("%s %s — правила %d и %d задают разные значения; применяется правило %d", preview.Date, formatClockHM(m), prev+1, ri+1, ri+1)})
 					}
-				} else if base != nil && dayItem.Hours[h].Enabled {
-					overwritten++
+				} else if base != nil && dayItem.Hours[m/60].Enabled {
+					overwrittenHours[m/60] = true
 				}
-				owner[h] = ri
+				owner[m] = ri
 			}
 		}
+		overwritten += len(overwrittenHours)
 		if base == nil {
 			for h := range dayItem.Hours {
 				dayItem.Hours[h] = defaultHourConfig(h)
 				dayItem.Hours[h].UseTimerMask, dayItem.Hours[h].UseTimer = mask, mask&1 != 0
 			}
 		}
+		touchedHour := map[int]bool{}
+		for m := range owner {
+			touchedHour[m/60] = true
+		}
 		keptCustom := []MinuteSlot{}
 		for _, cs := range dayItem.CustomSlots {
-			if _, touched := owner[cs.Hour]; touched || base == nil {
+			m := cs.Hour*60 + cs.Minute
+			if _, owned := owner[m]; owned {
+				removedCustom++
+				continue
+			}
+			if touchedHour[cs.Hour] {
+				// Hour regenerated from rules — drop stale customs in that hour.
+				removedCustom++
+				continue
+			}
+			if base == nil {
 				removedCustom++
 				continue
 			}
 			keptCustom = append(keptCustom, cs)
 		}
-		dayItem.CustomSlots = keptCustom
-		for h, ri := range owner {
-			dayItem.Hours[h] = rules[ri].hourConfig(h, mask)
-		}
-		dayItem.Slots = nil
+		newCustoms := []MinuteSlot{}
 		for h := 0; h < 24; h++ {
-			if _, ok := owner[h]; !ok && base != nil && dayItem.Hours[h].Enabled {
-				preview.Kept = append(preview.Kept, h)
-			}
-		}
-		// Contiguous hours from the same rule form one interval.
-		for h := 0; h < 24; {
-			ri, ok := owner[h]
-			if !ok {
-				h++
+			if !touchedHour[h] {
+				if base != nil && dayItem.Hours[h].Enabled {
+					preview.Kept = append(preview.Kept, h)
+				}
 				continue
 			}
-			start := h
-			for h < 24 {
-				if r2, ok2 := owner[h]; !ok2 || r2 != ri {
+			minuteOwner := [12]int{}
+			for i := range minuteOwner {
+				minuteOwner[i] = -1
+			}
+			covered := 0
+			for mi := 0; mi < 12; mi++ {
+				if ri, ok := owner[h*60+mi*5]; ok {
+					minuteOwner[mi] = ri
+					covered++
+				}
+			}
+			if covered == 0 {
+				continue
+			}
+			partial := covered < 12
+			if partial {
+				partialHours++
+			}
+			if minuteOwner[0] >= 0 {
+				dayItem.Hours[h] = rules[minuteOwner[0]].hourConfig(h, mask)
+			} else if base == nil {
+				dayItem.Hours[h] = defaultHourConfig(h)
+				dayItem.Hours[h].UseTimerMask, dayItem.Hours[h].UseTimer = mask, mask&1 != 0
+			}
+			hourCfg := dayItem.Hours[h]
+			for mi := 1; mi < 12; mi++ {
+				minute := mi * 5
+				if ri := minuteOwner[mi]; ri >= 0 {
+					slot := minuteSlotFromHourConfig(rules[ri].hourConfig(h, mask), minute)
+					if minuteSlotDiffersFromHour(slot, hourCfg) {
+						newCustoms = append(newCustoms, slot)
+					}
+				} else if hourCfg.Enabled {
+					// Punch a hole so the hour baseline does not spill past the interval end.
+					slot := minuteSlotFromHourConfig(hourCfg, minute)
+					slot.Enabled = false
+					if minuteSlotDiffersFromHour(slot, hourCfg) {
+						newCustoms = append(newCustoms, slot)
+					}
+				}
+			}
+		}
+		dayItem.CustomSlots = append(keptCustom, newCustoms...)
+		dayItem.Slots = nil
+		// Contiguous 5-minute ownership blocks → preview intervals.
+		for m := 0; m < 24*60; {
+			ri, ok := owner[m]
+			if !ok {
+				m += 5
+				continue
+			}
+			start := m
+			for m < 24*60 {
+				if r2, ok2 := owner[m]; !ok2 || r2 != ri {
 					break
 				}
-				h++
+				m += 5
 			}
 			r := rules[ri]
-			cfg := r.hourConfig(start, mask)
-			preview.Intervals = append(preview.Intervals, simpleInterval{Start: start, End: h, Rule: ri + 1, RuleName: r.Name, Mode: r.Mode, ModeLabel: simpleModeLabel(r), PowerW: r.PowerW, SOC: r.BatterySOC, ChargeMode: cfg.ChargeMode})
-			res.EnabledHours += h - start
+			cfg := r.hourConfig(start/60, mask)
+			preview.Intervals = append(preview.Intervals, simpleInterval{
+				Start: start / 60, End: (m + 59) / 60, StartMin: start, EndMin: m,
+				Rule: ri + 1, RuleName: r.Name, Mode: r.Mode, ModeLabel: simpleModeLabel(r),
+				PowerW: r.PowerW, SOC: r.BatterySOC, ChargeMode: cfg.ChargeMode,
+				PartialHour: start%60 != 0 || m%60 != 0,
+			})
 		}
 		res.Days = append(res.Days, preview)
+	}
+	res.EnabledHours = 0
+	for _, d := range res.Days {
+		seen := map[int]bool{}
+		for _, iv := range d.Intervals {
+			for m := iv.StartMin; m < iv.EndMin; m += 5 {
+				seen[m/60] = true
+			}
+		}
+		res.EnabledHours += len(seen)
+	}
+	if partialHours > 0 {
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"интервалы с точностью 5 минут затрагивают частичные часы (%d): значения сохраняются как часовой базис HH:00 плюс 5-минутные переопределения (customSlots), совместимые с расширенным режимом и XLSX",
+			partialHours,
+		))
 	}
 	normalizeSchedulePayloadSellTimes(&payload)
 	if removedCustom > 0 {
@@ -819,34 +918,85 @@ func analyzeScheduleForSimpleMode(raw string) map[string]any {
 	days := []map[string]any{}
 	for _, d := range payload.Days {
 		custom += len(d.CustomSlots)
+		type cell struct {
+			active bool
+			cfg    HourConfig
+		}
+		cells := make([]cell, 24*12)
+		for h := 0; h < 24; h++ {
+			hourCfg := d.Hours[h]
+			for mi := 0; mi < 12; mi++ {
+				minute := mi * 5
+				idx := h*12 + mi
+				if minute == 0 {
+					cells[idx] = cell{active: hourCfg.Enabled, cfg: hourCfg}
+					continue
+				}
+				si := slotIndex(h, minute)
+				if si >= 0 && si < len(d.Slots) {
+					slot := d.Slots[si]
+					if minuteSlotDiffersFromHour(slot, hourCfg) {
+						if slot.Enabled {
+							cells[idx] = cell{active: true, cfg: minuteSlotToHourConfig(slot)}
+						} else {
+							cells[idx] = cell{active: false}
+						}
+						continue
+					}
+				}
+				cells[idx] = cell{active: hourCfg.Enabled, cfg: hourCfg}
+			}
+		}
 		intervals := []map[string]any{}
-		for h := 0; h < 24; {
-			if !d.Hours[h].Enabled {
-				h++
+		for i := 0; i < len(cells); {
+			if !cells[i].active {
+				i++
 				continue
 			}
-			start := h
-			ref := d.Hours[h]
-			for h < 24 && d.Hours[h].Enabled && sameHourValues(d.Hours[h], ref) {
-				h++
+			start := i
+			ref := cells[i].cfg
+			for i < len(cells) && cells[i].active && sameHourValues(cells[i].cfg, ref) {
+				i++
 			}
-			intervals = append(intervals, map[string]any{"start": start, "end": h, "charge_mode": ref.ChargeMode, "charge_mode_label": chargeModeLabelFromValue(ref.ChargeMode),
-				"power_w": ref.SellModeKW * 10, "soc": ref.SellModeBattCapacity, "grid_charge": ref.GridChargeEnabled, "export_w": ref.GridExportLimit * 10,
-				"load_limit_mode": ref.LoadLimitMode, "priority_load": ref.PriorityLoad})
+			startMin := start * 5
+			endMin := i * 5
+			intervals = append(intervals, map[string]any{
+				"start": startMin / 60, "end": (endMin + 59) / 60,
+				"start_min": startMin, "end_min": endMin,
+				"start_time": formatClockHM(startMin), "end_time": formatClockHM(endMin),
+				"charge_mode": ref.ChargeMode, "charge_mode_label": chargeModeLabelFromValue(ref.ChargeMode),
+				"power_w": ref.SellModeKW * 10, "soc": ref.SellModeBattCapacity, "grid_charge": ref.GridChargeEnabled,
+				"export_w": ref.GridExportLimit * 10, "load_limit_mode": ref.LoadLimitMode, "priority_load": ref.PriorityLoad,
+				"partial_hour": startMin%60 != 0 || endMin%60 != 0,
+			})
 		}
 		if len(intervals) > 0 {
 			days = append(days, map[string]any{"day": d.Day, "intervals": intervals})
 		}
 	}
 	if custom > 0 {
-		reasons = append(reasons, fmt.Sprintf("есть 5-минутные переопределения (%d) — упрощённый режим работает с целыми часами", custom))
+		// 5-minute overrides are first-class in the simplified editor now; only
+		// warn when they cannot be collapsed into contiguous intervals (already
+		// handled by interval extraction). Keep a soft note for operators.
+		reasons = append(reasons, fmt.Sprintf("есть 5-минутные переопределения (%d) — отображаются как интервалы с шагом 5 минут", custom))
 	}
 	mask := payload.UseTimerMask
 	if mask != 0 && mask != 255 {
 		reasons = append(reasons, fmt.Sprintf("маска Use Timer %d отличается от «все дни» (255)", mask))
 	}
-	out["representable"] = len(reasons) == 0
-	out["reasons"] = reasons
+	// Custom-slot note alone should not block editing in simplified mode.
+	filtered := []string{}
+	for _, r := range reasons {
+		if strings.Contains(r, "5-минутные переопределения") {
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+	out["representable"] = len(filtered) == 0
+	out["reasons"] = filtered
+	if custom > 0 {
+		out["five_minute_note"] = fmt.Sprintf("5-минутные переопределения: %d", custom)
+	}
 	out["days"] = days
 	out["use_timer_mask"] = mask
 	return out
@@ -1001,9 +1151,14 @@ func extractSimpleRulesFromAnalysis(an map[string]any) []SimpleRule {
 	}
 	out := []SimpleRule{}
 	for _, m := range intervalMaps {
-		start, _ := intFromAny(m["start"])
-		end, _ := intFromAny(m["end"])
-		if end <= start {
+		startMin, okStart := intFromAny(m["start_min"])
+		endMin, okEnd := intFromAny(m["end_min"])
+		if !okStart || !okEnd {
+			startH, _ := intFromAny(m["start"])
+			endH, _ := intFromAny(m["end"])
+			startMin, endMin = startH*60, endH*60
+		}
+		if endMin <= startMin {
 			continue
 		}
 		gc := false
@@ -1016,18 +1171,25 @@ func extractSimpleRulesFromAnalysis(an map[string]any) []SimpleRule {
 		ll, _ := intFromAny(m["load_limit_mode"])
 		pl, _ := intFromAny(m["priority_load"])
 		name, _ := m["charge_mode_label"].(string)
+		if st, ok := m["start_time"].(string); ok && strings.TrimSpace(st) != "" {
+			if em, ok2 := m["end_time"].(string); ok2 && strings.TrimSpace(em) != "" {
+				r := SimpleRule{
+					Name: name, Mode: "custom", StartTime: st, EndTime: em,
+					GridChargeEnabled: &gc, PowerW: pw, BatterySOC: soc,
+					LoadLimitMode: ll, PriorityLoad: normalizePriorityLoadValue(pl),
+				}
+				_ = normalizeSimpleRuleTimes(&r)
+				out = append(out, r)
+				continue
+			}
+		}
 		r := SimpleRule{
 			Name: name, Mode: "custom",
-			StartTime: formatClockHM(start * 60),
-			EndTime:   formatClockHM(min(end, 24) * 60),
-			StartHour: start, EndHour: end,
+			StartTime: formatClockHM(startMin), EndTime: formatClockHM(min(endMin, 24*60)),
 			GridChargeEnabled: &gc, PowerW: pw, BatterySOC: soc,
 			LoadLimitMode: ll, PriorityLoad: normalizePriorityLoadValue(pl),
 		}
-		if end >= 24 {
-			r.EndTime = "24:00"
-			r.EndHour = 24
-		}
+		_ = normalizeSimpleRuleTimes(&r)
 		out = append(out, r)
 	}
 	return out

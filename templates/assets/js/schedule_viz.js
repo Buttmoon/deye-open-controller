@@ -77,16 +77,30 @@ window.ScheduleViz = (function () {
 
   // fromPreview converts a simplified-mode preview into the timeline format.
   function fromPreview(result, modeCategory) {
+    const fmt = m => {
+      if (m >= 1440) return "24:00";
+      return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    };
     return {
       month: result.month, is_template: false,
       days: result.days.map(d => {
         const hours = Array.from({length: 24}, (_, h) => ({hour: h, enabled: false, state: "configured", category: "off", mode_label: "не задано"}));
-        (d.kept_hours || []).forEach(h => { hours[h] = {hour: h, enabled: true, state: "configured", category: "kept", mode_label: "сохранено из текущего расписания", power_w: "—", soc: "—", export_w: "—"}; });
+        (d.kept_hours || d.kept || []).forEach(h => { hours[h] = {hour: h, enabled: true, state: "configured", category: "kept", mode_label: "сохранено из текущего расписания", power_w: "—", soc: "—", export_w: "—"}; });
         d.intervals.forEach(iv => {
-          for (let h = iv.start; h < iv.end; h++) {
-            hours[h] = {hour: h, enabled: true, state: "configured", category: modeCategory(iv), mode_label: `${iv.mode_label} — правило ${iv.rule}${iv.rule_name ? " «" + iv.rule_name + "»" : ""}`,
-              power_w: iv.power_w, soc: iv.soc, export_w: "—", grid_charge: (iv.charge_mode & 1) === 1};
-          }
+          const startMin = iv.start_min != null ? iv.start_min : (iv.start || 0) * 60;
+          const endMin = iv.end_min != null ? iv.end_min : (iv.end || 0) * 60;
+          const touched = new Set();
+          for (let m = startMin; m < endMin; m += 5) touched.add(Math.floor(m / 60));
+          touched.forEach(h => {
+            const partial = startMin > h * 60 || endMin < (h + 1) * 60;
+            hours[h] = {
+              hour: h, enabled: true, state: "configured", category: modeCategory(iv),
+              mode_label: `${iv.mode_label} — правило ${iv.rule}${iv.rule_name ? " «" + iv.rule_name + "»" : ""} (${fmt(startMin)}–${fmt(endMin)})`,
+              power_w: iv.power_w, soc: iv.soc, export_w: "—",
+              grid_charge: (iv.charge_mode & 1) === 1,
+              custom_slots: partial || iv.partial_hour ? 1 : 0
+            };
+          });
         });
         return {day: d.day, date: d.date, weekday: d.weekday, hours};
       })

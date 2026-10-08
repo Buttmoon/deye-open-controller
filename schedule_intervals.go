@@ -238,21 +238,17 @@ func countDistinctDailyIntervals(rules []SimpleRule) int {
 			gc: boolToInt(cfg.GridChargeEnabled), llm: cfg.LoadLimitMode, pl: cfg.PriorityLoad,
 			cm: cfg.ChargeMode, pw: cfg.SellModeKW, soc: cfg.SellModeBattCapacity,
 		}
-		hours := []int{}
 		if cp.endMin > cp.startMin {
-			for h := cp.StartHour; h < cp.EndHour && h < 24; h++ {
-				hours = append(hours, h)
+			for m := cp.startMin; m < cp.endMin; m += 5 {
+				owner[m] = k
 			}
 		} else {
-			for h := cp.StartHour; h < 24; h++ {
-				hours = append(hours, h)
+			for m := cp.startMin; m < 24*60; m += 5 {
+				owner[m] = k
 			}
-			for h := 0; h < cp.EndHour; h++ {
-				hours = append(hours, h)
+			for m := 0; m < cp.endMin; m += 5 {
+				owner[m] = k
 			}
-		}
-		for _, h := range hours {
-			owner[h] = k
 		}
 	}
 	if len(owner) == 0 {
@@ -261,8 +257,8 @@ func countDistinctDailyIntervals(rules []SimpleRule) int {
 	count := 0
 	var prev key
 	havePrev := false
-	for h := 0; h < 24; h++ {
-		k, ok := owner[h]
+	for m := 0; m < 24*60; m += 5 {
+		k, ok := owner[m]
 		if !ok {
 			havePrev = false
 			continue

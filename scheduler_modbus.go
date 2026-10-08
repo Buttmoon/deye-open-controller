@@ -962,21 +962,35 @@ func getScheduleConfigForExecution(day *DayItem, hour, minute int) (HourConfig, 
 	// Никакие прочитанные значения с инвертора здесь не используются.
 	if day.Enabled && hour < len(day.Hours) {
 		hourCfg := day.Hours[hour]
-		if hourCfg.Enabled {
-			if idx := slotIndex(hour, minute); idx >= 0 && idx < len(day.Slots) {
-				slot := day.Slots[idx]
-				if minute != 0 && slot.Enabled && minuteSlotDiffersFromHour(slot, hourCfg) {
+		if idx := slotIndex(hour, minute); idx >= 0 && idx < len(day.Slots) {
+			slot := day.Slots[idx]
+			if minute != 0 && minuteSlotDiffersFromHour(slot, hourCfg) {
+				if slot.Enabled {
+					// Явное 5-минутное переопределение действует и когда час
+					// выключен (интервал начинается не с HH:00).
 					cfg := minuteSlotToHourConfig(slot)
 					cfg.SellTime = sellTimeForSlot(slot.Hour, slot.Minute)
 					cfg.Label = minuteSlotLabel(slot.Hour, slot.Minute)
 					cfg.Point = pointForHour(slot.Hour)
 					return cfg, "custom_5_minute_slot_from_schedule", true
 				}
+				if hourCfg.Enabled {
+					// Явно выключенный 5-минутный слот «пробивает дыру» в
+					// часовой настройке (интервал заканчивается внутри часа).
+					return HourConfig{}, "explicit_disabled_5_minute_slot", false
+				}
 			}
+		}
+		if hourCfg.Enabled {
 			hourCfg.SellTime = sellTimeForSlot(hourCfg.Hour, 0)
 			hourCfg.Label = hourLabel(hourCfg.Hour)
 			hourCfg.Point = pointForHour(hourCfg.Hour)
 			return hourCfg, "hour_from_schedule", true
+		}
+		// Hour disabled with explicit mid-hour customs (e.g. 00:15–…): do not
+		// nearest-fill earlier minutes inside this hour from a later start.
+		if hourHasEnabledCustomSlot(day, hour) {
+			return HourConfig{}, "gap_before_mid_hour_interval", false
 		}
 	}
 
@@ -986,6 +1000,26 @@ func getScheduleConfigForExecution(day *DayItem, hour, minute int) (HourConfig, 
 		return nearest.Cfg, "nearest_filled_schedule_point_same_day", true
 	}
 	return HourConfig{}, "", false
+}
+
+func hourHasEnabledCustomSlot(day *DayItem, hour int) bool {
+	if day == nil {
+		return false
+	}
+	for _, s := range day.CustomSlots {
+		if s.Hour == hour && s.Enabled && s.Minute > 0 {
+			return true
+		}
+	}
+	for m := 5; m < 60; m += 5 {
+		idx := slotIndex(hour, m)
+		if idx >= 0 && idx < len(day.Slots) && day.Slots[idx].Enabled && day.Slots[idx].Minute > 0 {
+			if hour < len(day.Hours) && minuteSlotDiffersFromHour(day.Slots[idx], day.Hours[hour]) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func selectSixSchedulePointCandidates(day *DayItem, currentCandidate pointScheduleCandidate) []pointScheduleCandidate {

@@ -1128,17 +1128,20 @@ func getSlotConfig(payload *SchedulePayload, day int, hour, minute int) (MinuteS
 		}
 
 		hourCfg := payload.Days[i].Hours[hour]
-		if !hourCfg.Enabled {
-			return MinuteSlot{}, false
-		}
 		idx := slotIndex(hour, minute)
 		if idx >= 0 && idx < len(payload.Days[i].Slots) {
 			slot := payload.Days[i].Slots[idx]
-			// 5-минутный слот отправляем только если он явно заполнен, активен и отличается
-			// от часовой настройки. Пустой/унаследованный слот заменяем часовой точкой HH:00.
-			if minute != 0 && slot.Enabled && minuteSlotDiffersFromHour(slot, hourCfg) {
-				return slot, true
+			if minute != 0 && minuteSlotDiffersFromHour(slot, hourCfg) {
+				if slot.Enabled {
+					return slot, true
+				}
+				if hourCfg.Enabled {
+					return MinuteSlot{}, false
+				}
 			}
+		}
+		if !hourCfg.Enabled {
+			return MinuteSlot{}, false
 		}
 		return minuteSlotFromHourConfig(hourCfg, 0), true
 	}

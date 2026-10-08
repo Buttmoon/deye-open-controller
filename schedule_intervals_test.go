@@ -261,3 +261,83 @@ func TestSimpleSchedulePageLayoutMarkers(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildSimpleScheduleFiveMinutePrecision(t *testing.T) {
+	gc := true
+	rules := []SimpleRule{{
+		Mode: "custom", StartTime: "00:15", EndTime: "06:30",
+		GridChargeEnabled: &gc, PowerW: 2000, BatterySOC: 35,
+		LoadLimitMode: 1, PriorityLoad: 1,
+	}}
+	res, payload, err := buildSimpleSchedule(rules, time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local), nil, 255)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Days) == 0 || len(res.Days[0].Intervals) == 0 {
+		t.Fatal("expected preview intervals")
+	}
+	iv := res.Days[0].Intervals[0]
+	if iv.StartMin != 15 || iv.EndMin != 6*60+30 {
+		t.Fatalf("preview minutes %d-%d", iv.StartMin, iv.EndMin)
+	}
+	day := payload.Days[0]
+	if day.Hours[0].Enabled {
+		t.Fatal("hour 0 baseline should stay disabled when interval starts at :15")
+	}
+	if !day.Hours[1].Enabled || day.Hours[1].SellModeKW != 200 {
+		t.Fatalf("hour 1 full coverage: enabled=%v kw=%d", day.Hours[1].Enabled, day.Hours[1].SellModeKW)
+	}
+	if !day.Hours[6].Enabled {
+		t.Fatal("hour 6 should be enabled for :00–:25")
+	}
+	foundStart := false
+	foundHole := false
+	for _, cs := range day.CustomSlots {
+		if cs.Hour == 0 && cs.Minute == 15 && cs.Enabled && cs.SellModeKW == 200 {
+			foundStart = true
+		}
+		if cs.Hour == 6 && cs.Minute == 30 && !cs.Enabled {
+			foundHole = true
+		}
+	}
+	if !foundStart {
+		t.Fatal("expected custom slot at 00:15")
+	}
+	if !foundHole {
+		t.Fatal("expected disabled hole at 06:30")
+	}
+	cfg, src, ok := getScheduleConfigForExecution(&day, 0, 15)
+	if !ok || cfg.SellModeKW != 200 {
+		t.Fatalf("exec 00:15 ok=%v kw=%d src=%s", ok, cfg.SellModeKW, src)
+	}
+	if _, _, ok := getScheduleConfigForExecution(&day, 0, 5); ok {
+		t.Fatal("00:05 should not resolve to interval when hour disabled and no earlier candidate")
+	}
+	if _, _, ok := getScheduleConfigForExecution(&day, 6, 30); ok {
+		t.Fatal("06:30 hole should skip execution")
+	}
+	cfg, _, ok = getScheduleConfigForExecution(&day, 6, 0)
+	if !ok || cfg.SellModeKW != 200 {
+		t.Fatalf("06:00 should use hour baseline kw=%d ok=%v", cfg.SellModeKW, ok)
+	}
+}
+
+func TestExtractFiveMinuteRulesRoundTrip(t *testing.T) {
+	gc := false
+	rules := []SimpleRule{{
+		Mode: "custom", StartTime: "08:05", EndTime: "09:20",
+		GridChargeEnabled: &gc, PowerW: 500, BatterySOC: 50,
+	}}
+	res, _, err := buildSimpleSchedule(rules, time.Date(2026, 3, 1, 0, 0, 0, 0, time.Local), nil, 255)
+	if err != nil {
+		t.Fatal(err)
+	}
+	an := analyzeScheduleForSimpleMode(res.ScheduleJSON)
+	got := extractSimpleRulesFromAnalysis(an)
+	if len(got) == 0 {
+		t.Fatal("no rules extracted")
+	}
+	if got[0].StartTime != "08:05" || got[0].EndTime != "09:20" {
+		t.Fatalf("got %s-%s", got[0].StartTime, got[0].EndTime)
+	}
+}

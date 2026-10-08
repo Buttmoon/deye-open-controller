@@ -235,14 +235,58 @@ details.plain summary { cursor: pointer; color: var(--accent); }
 .btn-xs { padding: 4px 8px; font-size: 12px; border-radius: 8px; }
 .btn-warning { background: rgba(245,158,11,.18); color: #fbbf24; border: 1px solid rgba(245,158,11,.35); }
 
-/* Simplified schedule: full-width vertical workflow */
+/* Simplified schedule: full-width vertical workflow + advanced editor field look */
 .simple-schedule-page { width: min(1450px, calc(100% - 32px)); }
 .simple-schedule-page > .card { width: 100%; }
 .simple-schedule-page .button-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .simple-schedule-page .table-wrap { width: 100%; max-width: 100%; }
-.simple-schedule-page .interval-table { min-width: 720px; }
+.simple-schedule-page .interval-table { min-width: 1100px; border-collapse: separate; border-spacing: 0; }
+.simple-schedule-page .interval-table th,
+.simple-schedule-page .interval-table td {
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  padding: 8px;
+  text-align: left;
+  vertical-align: middle;
+  font-size: 13px;
+}
+.simple-schedule-page .interval-table th {
+  color: #cbd5e1;
+  background: rgba(255,255,255,.03);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.simple-schedule-page .interval-table .hour-input,
+.simple-schedule-page .interval-table .hour-select { min-width: 88px; }
+.simple-schedule-page .interval-table .hour-select[data-f="start_time"],
+.simple-schedule-page .interval-table .hour-select[data-f="end_time"] { min-width: 96px; }
+.simple-schedule-page .field .hour-input,
+.simple-schedule-page .field .hour-select { width: 100%; }
+.simple-schedule-page .mode-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+.simple-schedule-page .mode-check input { margin: 0; accent-color: var(--accent); }
 .simple-schedule-page .inverters-box { margin-top: 12px; }
 .simple-schedule-page #ssViz { width: 100%; overflow-x: auto; }
+html[data-theme="light"] .simple-schedule-page .interval-table th { color: var(--muted); background: rgba(15,23,42,.04); }
+html[data-theme="light"] .simple-schedule-page .interval-table th,
+html[data-theme="light"] .simple-schedule-page .interval-table td { border-bottom-color: var(--border); }
+html[data-theme="light"] .simple-schedule-page .mode-check {
+  background: var(--input-bg);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
 @media (max-width: 800px) {
   .simple-schedule-page { width: calc(100% - 20px); }
   .simple-schedule-page .page-title { flex-direction: column; }
