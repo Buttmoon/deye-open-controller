@@ -70,8 +70,8 @@
         <label><input type="checkbox" data-wd="7"><span>Вс</span></label>
       </div></div>
     <div class="field"><label>Что делать с текущим расписанием</label>
-      <label class="check"><input type="radio" name="ssBase" value="merge" checked> Дополнить: часы вне интервалов сохраняются</label>
-      <label class="check"><input type="radio" name="ssBase" value="replace"> Заменить: часы вне интервалов выключаются</label>
+      <label class="check"><input type="radio" name="ssBase" value="merge"> Дополнить: часы вне интервалов сохраняются</label>
+      <label class="check"><input type="radio" name="ssBase" value="replace" checked> Заменить: часы вне интервалов выключаются</label>
     </div>
     <label class="check"><input type="checkbox" id="ssAutoRenew"> Повторять ежемесячно (если не правили вручную в расширенном режиме)</label>
     <div id="ssExisting" style="margin-top:12px"></div>
@@ -111,7 +111,7 @@
         <button type="button" class="btn btn-secondary btn-sm" id="ssMergeAdj">Объединить одинаковые</button>
       </div>
     </div>
-    <p class="small muted">Шаг времени — <strong>5 минут</strong> (00:00…23:55, конец также 24:00). Интервалы через полночь допустимы (например 18:15–00:30). Частичные часы сохраняются как HH:00 + 5‑минутные переопределения (как в расширенном режиме). У инвертора 6 аппаратных программ TOU — при превышении будет предупреждение.</p>
+    <p class="small muted">Шаг времени — <strong>5 минут</strong> (00:00…23:55, конец также 24:00). Интервалы не должны пересекаться. Паузы при полной замене остаются неактивными (поля мощности и сетевого заряда — 0). Интервалы через полночь допустимы (например 18:15–00:30). Частичные часы сохраняются как HH:00 + 5‑минутные переопределения (как в расширенном режиме). У инвертора 6 аппаратных программ TOU — при превышении будет предупреждение.</p>
     <div id="ssTimelineLocal" class="day-timeline"></div>
     <div class="table-wrap" style="overflow:auto;margin-top:12px">
       <table class="interval-table" id="ssIntervalTable" style="display:none;width:100%">

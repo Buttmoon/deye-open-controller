@@ -411,3 +411,38 @@ document.getElementById('clearTaskLogsBtn')?.addEventListener('click', async fun
 });
 
 })();
+
+// Independent, persistent collapse controls for top-level dashboard panels.
+// localStorage is intentionally browser-specific (does not affect other users).
+(function initDashboardCollapse() {
+  const panels = document.querySelectorAll('.container > section.card, .container > section.tab-content > .card');
+  panels.forEach((panel, index) => {
+    if (panel.classList.contains('schedule-mode-summary')) return; // always show current mode
+    const heading = panel.querySelector(':scope > h2, :scope > .dashboard-head h2, :scope > .section-title-row h2');
+    if (!heading) return;
+    const id = panel.id || ('panel-' + heading.textContent.trim().toLowerCase().replace(/\s+/g, '-'));
+    const key = 'inverter.home.panel.v1.' + id;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-secondary btn-sm dashboard-collapse-button';
+    btn.setAttribute('aria-label', 'Свернуть или развернуть: ' + heading.textContent.trim());
+    const anchor = heading.closest('.dashboard-head, .section-title-row') || heading;
+    anchor.insertAdjacentElement('afterend', btn);
+    // Keep the original DOM and all event listeners; only toggle visibility.
+    const children = Array.from(panel.children).filter(el => el !== btn && el !== anchor && !el.contains(anchor));
+    const setOpen = (open) => {
+      children.forEach(el => { el.hidden = !open; });
+      panel.classList.toggle('dashboard-panel-collapsed', !open);
+      btn.textContent = open ? 'Свернуть' : 'Развернуть';
+      btn.setAttribute('aria-expanded', String(open));
+    };
+    let state = true;
+    try { state = localStorage.getItem(key) !== 'closed'; } catch (_) {}
+    setOpen(state);
+    btn.addEventListener('click', () => {
+      state = !state;
+      setOpen(state);
+      try { localStorage.setItem(key, state ? 'open' : 'closed'); } catch (_) {}
+    });
+  });
+})();

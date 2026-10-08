@@ -24,9 +24,9 @@ import (
 // still required for TOU encoding (registers 154–159 / 166–171).
 type SimpleRule struct {
 	Name              string `json:"name"`
-	DateFrom          string `json:"date_from,omitempty"` // YYYY-MM-DD, inclusive
-	DateTo            string `json:"date_to,omitempty"`   // YYYY-MM-DD, inclusive
-	Weekdays          []int  `json:"weekdays,omitempty"`  // 1=Пн … 7=Вс; empty = every day
+	DateFrom          string `json:"date_from,omitempty"`  // YYYY-MM-DD, inclusive
+	DateTo            string `json:"date_to,omitempty"`    // YYYY-MM-DD, inclusive
+	Weekdays          []int  `json:"weekdays,omitempty"`   // 1=Пн … 7=Вс; empty = every day
 	StartTime         string `json:"start_time,omitempty"` // HH:MM inclusive
 	EndTime           string `json:"end_time,omitempty"`   // HH:MM or 24:00 exclusive; End<=Start wraps midnight
 	StartHour         int    `json:"start_hour"`           // 0..23 (legacy / derived)
@@ -87,18 +87,18 @@ type SimpleScheduleRequest struct {
 }
 
 type simpleInterval struct {
-	Start      int    `json:"start"`                // hour floor of start (compat)
-	End        int    `json:"end"`                  // hour ceil of exclusive end (compat)
-	StartMin   int    `json:"start_min"`            // minutes from midnight, inclusive
-	EndMin     int    `json:"end_min"`              // minutes from midnight, exclusive
-	Rule       int    `json:"rule"`
-	RuleName   string `json:"rule_name"`
-	Mode       string `json:"mode"`
-	ModeLabel  string `json:"mode_label"`
-	PowerW     int    `json:"power_w"`
-	SOC        int    `json:"soc"`
-	ChargeMode int    `json:"charge_mode"`
-	PartialHour bool  `json:"partial_hour,omitempty"`
+	Start       int    `json:"start"`     // hour floor of start (compat)
+	End         int    `json:"end"`       // hour ceil of exclusive end (compat)
+	StartMin    int    `json:"start_min"` // minutes from midnight, inclusive
+	EndMin      int    `json:"end_min"`   // minutes from midnight, exclusive
+	Rule        int    `json:"rule"`
+	RuleName    string `json:"rule_name"`
+	Mode        string `json:"mode"`
+	ModeLabel   string `json:"mode_label"`
+	PowerW      int    `json:"power_w"`
+	SOC         int    `json:"soc"`
+	ChargeMode  int    `json:"charge_mode"`
+	PartialHour bool   `json:"partial_hour,omitempty"`
 }
 
 type simpleDayPreview struct {
@@ -118,21 +118,21 @@ type simpleConflict struct {
 }
 
 type SimpleScheduleResult struct {
-	Month            string             `json:"month"`
-	Days             []simpleDayPreview `json:"days"`
-	Conflicts        []simpleConflict   `json:"conflicts"`
-	Warnings         []string           `json:"warnings"`
-	Destructive      []string           `json:"destructive"`
-	Descriptions     []string           `json:"descriptions"`
-	ScheduleJSON     string             `json:"schedule_json,omitempty"`
-	EnabledHours     int                `json:"enabled_hours"`
-	ValidationErrs   []string           `json:"validation_errors,omitempty"`
-	IntervalSpans    []intervalSpan     `json:"interval_spans,omitempty"`
-	IntervalIssues   []intervalIssue    `json:"interval_issues,omitempty"`
-	HardwareSlots    int                `json:"hardware_slots"`
-	LogicalDaySlots  int                `json:"logical_day_slots"`
-	ExceedsHardware  bool               `json:"exceeds_hardware_slots"`
-	SoftwareManaged  bool               `json:"software_managed_ok"`
+	Month           string             `json:"month"`
+	Days            []simpleDayPreview `json:"days"`
+	Conflicts       []simpleConflict   `json:"conflicts"`
+	Warnings        []string           `json:"warnings"`
+	Destructive     []string           `json:"destructive"`
+	Descriptions    []string           `json:"descriptions"`
+	ScheduleJSON    string             `json:"schedule_json,omitempty"`
+	EnabledHours    int                `json:"enabled_hours"`
+	ValidationErrs  []string           `json:"validation_errors,omitempty"`
+	IntervalSpans   []intervalSpan     `json:"interval_spans,omitempty"`
+	IntervalIssues  []intervalIssue    `json:"interval_issues,omitempty"`
+	HardwareSlots   int                `json:"hardware_slots"`
+	LogicalDaySlots int                `json:"logical_day_slots"`
+	ExceedsHardware bool               `json:"exceeds_hardware_slots"`
+	SoftwareManaged bool               `json:"software_managed_ok"`
 }
 
 var weekdayShort = []string{"", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
@@ -448,13 +448,8 @@ func buildSimpleSchedule(rules []SimpleRule, month time.Time, base *SchedulePayl
 		overwrittenHours := map[int]bool{}
 		for ri, r := range rules {
 			for _, m := range r.minutesOn(date) {
-				cfg := r.hourConfig(m/60, mask)
 				if prev, ok := owner[m]; ok {
-					pc := rules[prev].hourConfig(m/60, mask)
-					if pc != cfg {
-						res.Conflicts = append(res.Conflicts, simpleConflict{Date: preview.Date, Hour: m / 60, RuleA: prev + 1, RuleB: ri + 1,
-							Message: fmt.Sprintf("%s %s — правила %d и %d задают разные значения; применяется правило %d", preview.Date, formatClockHM(m), prev+1, ri+1, ri+1)})
-					}
+					return res, SchedulePayload{}, fmt.Errorf("%s %s: интервалы %d и %d пересекаются; исправьте границы интервалов", preview.Date, formatClockHM(m), prev+1, ri+1)
 				} else if base != nil && dayItem.Hours[m/60].Enabled {
 					overwrittenHours[m/60] = true
 				}
@@ -532,8 +527,9 @@ func buildSimpleSchedule(rules []SimpleRule, month time.Time, base *SchedulePayl
 					}
 				} else if hourCfg.Enabled {
 					// Punch a hole so the hour baseline does not spill past the interval end.
-					slot := minuteSlotFromHourConfig(hourCfg, minute)
-					slot.Enabled = false
+					slot := defaultMinuteSlot(h, minute)
+					// Gaps must clear both Enabled and command values; stale power
+					// or charge flags must not survive in a partial hour.
 					if minuteSlotDiffersFromHour(slot, hourCfg) {
 						newCustoms = append(newCustoms, slot)
 					}
@@ -652,6 +648,27 @@ func (a *App) resolveSimpleSchedule(req SimpleScheduleRequest, inverterID int64,
 		if base == nil {
 			p := defaultSchedulePayload()
 			base = &p
+		}
+	}
+	// A merge can retain old programmed values in uncovered gaps. Refuse unsafe
+	// implicit carry-over; operator must explicitly choose full replacement.
+	if base != nil {
+		normalized := append([]SimpleRule(nil), req.Rules...)
+		for i := range normalized {
+			if err := normalizeSimpleRuleTimes(&normalized[i]); err != nil {
+				return SimpleScheduleResult{}, err
+			}
+		}
+		for day := month; day.Month() == month.Month(); day = day.AddDate(0, 0, 1) {
+			covered := make(map[int]bool)
+			for _, rule := range normalized {
+				for _, minute := range rule.minutesOn(day) {
+					covered[minute] = true
+				}
+			}
+			if len(covered) != 288 {
+				return SimpleScheduleResult{}, fmt.Errorf("режим объединения не гарантирует нулевые значения в паузах (%s). Выберите «Заменить расписание»: промежутки будут неактивны, мощность и заряд от сети — 0", day.Format("2006-01-02"))
+			}
 		}
 	}
 	res, _, err := buildSimpleSchedule(req.Rules, month, base, req.mask())
@@ -792,7 +809,7 @@ func (a *App) apiSimpleScheduleApplyHandler(w http.ResponseWriter, r *http.Reque
 		if s, err := a.getScheduleByInverterID(id); err == nil {
 			prevJSON = s.ScheduleJSON
 		}
-		if err := a.saveScheduleForInverter(id, name, "list", res.ScheduleJSON); err != nil {
+		if err := a.saveScheduleForInverter(id, name, "simple", res.ScheduleJSON); err != nil {
 			writeJSON(w, http.StatusInternalServerError, jsonResponse{OK: false, Message: "Ошибка сохранения расписания: " + err.Error()})
 			return
 		}
@@ -842,8 +859,8 @@ func (a *App) renewRecurringSchedules(now time.Time) {
 		return
 	}
 	type item struct {
-		id   int64
-		raw  string
+		id  int64
+		raw string
 	}
 	items := []item{}
 	for rows.Next() {
@@ -887,7 +904,7 @@ func (a *App) renewRecurringSchedules(now time.Time) {
 			a.recordHistory(HistoryEntry{OperationType: opJobUpdate, Status: histError, InverterID: it.id, Initiator: "система (автопродление)", Message: "Автопродление расписания не выполнено", Error: msg})
 			continue
 		}
-		if err := a.saveScheduleForInverter(it.id, name, "list", res.ScheduleJSON); err != nil {
+		if err := a.saveScheduleForInverter(it.id, name, "simple", res.ScheduleJSON); err != nil {
 			continue
 		}
 		st.GeneratedHash = scheduleHash(res.ScheduleJSON)
@@ -1032,21 +1049,21 @@ func (a *App) apiSimpleScheduleAnalyzeHandler(w http.ResponseWriter, r *http.Req
 }
 
 type SimpleSchedulePageData struct {
-	Title              string
-	InverterID         int64
-	InverterName       string
-	InverterEndpoint   string
-	InverterModelKey   string
-	InverterModelName  string
-	Templates          []models.ScheduleTemplate
-	SchedulePowerMaxW  int
-	GridExportMaxW     int
-	ModelsJSON         string
-	ChargeModesJSON    string
-	DefaultMonth       string
-	SimpleEnabled      bool
-	ExportURL          string
-	HasInverter        bool
+	Title             string
+	InverterID        int64
+	InverterName      string
+	InverterEndpoint  string
+	InverterModelKey  string
+	InverterModelName string
+	Templates         []models.ScheduleTemplate
+	SchedulePowerMaxW int
+	GridExportMaxW    int
+	ModelsJSON        string
+	ChargeModesJSON   string
+	DefaultMonth      string
+	SimpleEnabled     bool
+	ExportURL         string
+	HasInverter       bool
 }
 
 func (a *App) simpleSchedulePageHandler(w http.ResponseWriter, r *http.Request) {
@@ -1074,10 +1091,10 @@ func (a *App) simpleSchedulePageHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	modelsList, _ := availableInverterModels()
 	type modelLimits struct {
-		Key        string             `json:"key"`
-		Name       string             `json:"name"`
-		PowerMaxW  int                `json:"power_max_w"`
-		ExportMaxW int                `json:"export_max_w"`
+		Key         string             `json:"key"`
+		Name        string             `json:"name"`
+		PowerMaxW   int                `json:"power_max_w"`
+		ExportMaxW  int                `json:"export_max_w"`
 		ChargeModes []ChargeModeOption `json:"charge_modes"`
 	}
 	ml := []modelLimits{}

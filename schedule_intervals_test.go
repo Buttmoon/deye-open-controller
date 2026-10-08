@@ -341,3 +341,36 @@ func TestExtractFiveMinuteRulesRoundTrip(t *testing.T) {
 		t.Fatalf("got %s-%s", got[0].StartTime, got[0].EndTime)
 	}
 }
+
+func TestSimpleScheduleRejectsOverlappingIntervals(t *testing.T) {
+	gc := false
+	rules := []SimpleRule{
+		{StartTime: "00:00", EndTime: "06:00", Mode: "custom", GridChargeEnabled: &gc, BatterySOC: 20},
+		{StartTime: "05:45", EndTime: "12:00", Mode: "custom", GridChargeEnabled: &gc, BatterySOC: 20},
+	}
+	_, _, err := buildSimpleSchedule(rules, time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local), nil, 255)
+	if err == nil || !strings.Contains(err.Error(), "пересекаются") {
+		t.Fatalf("expected overlap rejection, got %v", err)
+	}
+}
+
+func TestSimpleSchedulePreservesFiveMinuteGapAsDisabled(t *testing.T) {
+	gc := false
+	rules := []SimpleRule{
+		{StartTime: "00:00", EndTime: "05:00", Mode: "custom", GridChargeEnabled: &gc, BatterySOC: 20, PowerW: 1000},
+		{StartTime: "05:45", EndTime: "12:00", Mode: "custom", GridChargeEnabled: &gc, BatterySOC: 20, PowerW: 1000},
+	}
+	_, schedule, err := buildSimpleSchedule(rules, time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local), nil, 255)
+	if err != nil {
+		t.Fatal(err)
+	}
+	day := schedule.Days[0]
+	if day.Hours[5].Enabled {
+		t.Fatal("gap hour baseline must remain disabled")
+	}
+	for _, slot := range day.CustomSlots {
+		if slot.Hour == 5 && slot.Minute < 45 && (slot.Enabled || slot.SellModeKW != 0 || slot.GridChargeEnabled) {
+			t.Fatalf("stale command in gap at 05:%02d: %+v", slot.Minute, slot)
+		}
+	}
+}

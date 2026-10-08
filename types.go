@@ -128,6 +128,8 @@ type MainPageData struct {
 	PrevPage               int
 	NextPage               int
 	GridPeakEnabled        bool
+	ScheduleMode           string
+	ScheduleActive         bool
 }
 
 type SettingsPageData struct {

@@ -299,7 +299,7 @@
       inverter_ids: inverterID ? [inverterID] : [],
       month: $("ssMonth").value,
       rules: cleanRules(),
-      base_mode: document.querySelector("input[name=ssBase]:checked")?.value || "merge",
+      base_mode: document.querySelector("input[name=ssBase]:checked")?.value || "replace",
       use_timer_mask: 255,
       name: $("ssName").value.trim() || "Упрощённое расписание",
       auto_renew: $("ssAutoRenew").checked
@@ -331,7 +331,7 @@
     previewController = new AbortController();
     const data = await App.api("/api/simple-schedule/preview", {method: "POST", json: buildRequest(), signal: previewController.signal});
     if (data.aborted) return;
-    if (!data.result) { msgs.innerHTML = `<div class="notice notice-err small">${esc(data.message)}</div>`; return; }
+    if (!data.result) { lastResult = null; msgs.innerHTML = `<div class="notice notice-err small">${esc(data.message)}</div>`; return; }
     const res = data.result;
     lastResult = res;
     $("ssDescriptions").innerHTML = `<ol>${(res.descriptions || []).map(d => `<li>${esc(d)}</li>`).join("")}</ol>

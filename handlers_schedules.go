@@ -178,6 +178,16 @@ func (a *App) saveSchedulesHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Advanced editing becomes the single authoritative schedule source.
+	// Disable stale simplified auto-renewal, preventing it from overwriting
+	// an advanced schedule when the month changes.
+	for _, id := range ids {
+		if _, err := a.db.Exec(`DELETE FROM schedule_recurrences WHERE inverter_id = ?`, id); err != nil {
+			log.Println("disable simple auto-renewal failed:", err)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{OK: false, Message: "Расписание сохранено, но не удалось отключить прежнее автопродление. Проверьте настройки перед запуском планировщика."})
+			return
+		}
+	}
 	a.recreateActiveSchedulerTask("schedule saved")
 	writeJSON(w, http.StatusOK, jsonResponse{OK: true, Message: "Расписание сохранено, задача пересоздана", Redirect: "/"})
 }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="/static/css/common.css?v=20260706b">
-  <link rel="stylesheet" href="/static/css/main.css?v=20260901a">
+  <link rel="stylesheet" href="/static/css/main.css?v=20261008-review1">
 </head>
 <body>
 <div id="popup" class="popup"></div>
@@ -24,6 +24,14 @@
     </div>
   </header>
 
+  <section class="card schedule-mode-summary" aria-label="Активный режим расписания">
+    <div class="section-title-row"><div><h2>Управление расписанием</h2>
+      <p class="muted">Один инвертор — одно сохранённое расписание. Редакторы не запускают отдельные планировщики.</p></div>
+      <span class="schedule-mode-pill {{if .ScheduleActive}}schedule-mode-on{{else}}schedule-mode-off{{end}}">{{if .ScheduleActive}}Активно{{else}}Неактивно{{end}}</span></div>
+    <p>Источник последнего сохранения: <strong>{{if eq .ScheduleMode "simple"}}Упрощённый режим{{else if eq .ScheduleMode "не настроен"}}Не настроен{{else}}Расширенный режим{{end}}</strong></p>
+    <div class="button-row"><a class="btn btn-primary" href="/schedules/simple">Упрощённый редактор</a><a class="btn btn-secondary" href="/schedules">Расширенный редактор</a></div>
+    <p class="muted small">При сохранении в другом редакторе он заменяет единственное расписание. Старое автопродление упрощённого режима отключается при сохранении расширенного.</p>
+  </section>
   <section class="home-quick-grid">
     <a class="home-quick-card" href="/schedules"><span>◷</span><strong>Расписание</strong><small>Открыть редактор расписания первого инвертора</small></a>
     <a class="home-quick-card" href="/templates/list"><span>▦</span><strong>Шаблоны</strong><small>Список, создание и применение шаблонов</small></a>
@@ -391,6 +399,6 @@
   </section>
 </div>
 <script src="/static/js/common.js?v=20260525a"></script>
-<script src="/static/js/main.js?v=20260901a"></script>
+<script src="/static/js/main.js?v=20261008-review1"></script>
 </body>
 </html>

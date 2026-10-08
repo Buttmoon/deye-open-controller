@@ -77,6 +77,11 @@ func (a *App) homeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	scheduleMode := "не настроен"
+	scheduleActive := false
+	if err := a.db.QueryRow(`SELECT view_mode, is_enabled FROM schedules ORDER BY inverter_id LIMIT 1`).Scan(&scheduleMode, &scheduleActive); err != nil {
+		scheduleMode = "не настроен"
+	}
 	data := MainPageData{
 		Title:                  "Главная",
 		ApplicationDisplayName: applicationDisplayName,
@@ -97,6 +102,8 @@ func (a *App) homeHandler(w http.ResponseWriter, r *http.Request) {
 		PrevPage:               page - 1,
 		NextPage:               page + 1,
 		GridPeakEnabled:        a.gridPeakFeatureEnabled(),
+		ScheduleMode:           scheduleMode,
+		ScheduleActive:         scheduleActive,
 	}
 
 	if err := a.tmplMain.Execute(w, data); err != nil {

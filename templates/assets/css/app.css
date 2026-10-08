@@ -291,3 +291,52 @@ html[data-theme="light"] .simple-schedule-page .mode-check {
   .simple-schedule-page { width: calc(100% - 20px); }
   .simple-schedule-page .page-title { flex-direction: column; }
 }
+
+/* Advanced schedule visual alignment with simplified schedule (scoped, no behavior change). */
+.advanced-schedule-page { width: min(1450px, calc(100% - 32px)); max-width: none; }
+.advanced-schedule-page > .card { width: 100%; min-width: 0; }
+.advanced-schedule-page .advanced-hero,
+.advanced-schedule-page .advanced-editor-card,
+.advanced-schedule-page .advanced-overview-card { border: 1px solid var(--border-strong); border-radius: 18px; background: var(--surface); }
+.advanced-schedule-page .advanced-hero { padding: 22px; }
+.advanced-schedule-page .advanced-section-heading { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.advanced-schedule-page .advanced-section-heading h2 { margin: 0 0 4px; }
+.advanced-schedule-page .advanced-section-heading p { margin: 0; }
+.advanced-schedule-page .advanced-step { display: inline-flex; flex: 0 0 34px; width: 34px; height: 34px; align-items: center; justify-content: center; background: rgba(56,189,248,.12); color: var(--accent); border: 1px solid rgba(56,189,248,.24); border-radius: 10px; font-weight: 800; }
+.advanced-schedule-page .advanced-setup-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.advanced-schedule-page .advanced-setup-fields .field { min-width: 0; margin: 0; }
+.advanced-schedule-page .advanced-setup-fields input, .advanced-schedule-page .advanced-setup-fields select { width: 100%; background: var(--input-bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 10px; min-height: 42px; }
+.advanced-schedule-page .advanced-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px; background: var(--badge-bg); border: 1px solid var(--border); border-radius: 14px; }
+.advanced-schedule-page .advanced-toolbar .btn { margin: 0; min-height: 36px; }
+.advanced-schedule-page .advanced-days-heading { margin-top: 22px; }
+.advanced-schedule-page .day-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 12px; }
+.advanced-schedule-page .day-card { border-radius: 12px; background: var(--badge-bg); border: 1px solid var(--border-strong); min-height: 112px; transition: border-color .15s, background .15s, transform .15s; }
+.advanced-schedule-page .day-card:hover { background: rgba(56,189,248,.09); border-color: var(--accent); }
+.advanced-schedule-page .day-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.advanced-schedule-page .inverters-box { margin-top: 14px; }
+.advanced-schedule-page .advanced-overview-card > .row.between { gap: 14px; }
+.advanced-schedule-page .advanced-overview-card .row select, .advanced-schedule-page .advanced-overview-card .row input { background: var(--input-bg); border: 1px solid var(--border-strong); border-radius: 9px; color: var(--text); min-height: 36px; }
+.advanced-schedule-page #vizBox { max-width: 100%; overflow-x: auto; }
+.advanced-schedule-page details.plain { background: var(--badge-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.advanced-schedule-page details.plain summary { font-weight: 700; }
+.advanced-day-dialog { border-radius: 18px; background: var(--panel); border: 1px solid var(--border-strong); max-width: min(1460px, 96vw); }
+.advanced-day-dialog .table-wrap { overflow-x: auto; border-color: var(--border); border-radius: 12px; }
+.advanced-day-dialog table { border-collapse: separate; border-spacing: 0; }
+.advanced-day-dialog table th { background: var(--panel-2); color: var(--muted); font-size: 12px; letter-spacing: .02em; position: sticky; top: 0; z-index: 2; }
+.advanced-day-dialog table td { border-bottom: 1px solid var(--border); }
+.advanced-day-dialog .hour-row:nth-child(even) td { background: var(--badge-bg); }
+.advanced-day-dialog .hour-row:hover td, .advanced-day-dialog .custom-slot-row:hover td { background: rgba(56,189,248,.12); }
+.advanced-day-dialog .hour-input, .advanced-day-dialog .hour-select, .advanced-day-dialog .slot-input, .advanced-day-dialog .slot-select { background: var(--input-bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 9px; min-height: 34px; }
+.advanced-day-dialog input[type=checkbox] { accent-color: var(--accent); }
+.advanced-day-dialog input:focus-visible, .advanced-day-dialog select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 800px) {
+ .advanced-schedule-page { width: calc(100% - 20px); }
+ .advanced-schedule-page .advanced-setup-fields { grid-template-columns: 1fr; }
+ .advanced-schedule-page .advanced-hero { padding: 16px; }
+ .advanced-schedule-page .advanced-toolbar { padding: 10px; }
+ .advanced-schedule-page .advanced-toolbar .btn { width: 100%; justify-content: center; }
+ .advanced-schedule-page .advanced-overview-card > .row.between { align-items: flex-start; }
+ .advanced-schedule-page .day-grid { grid-template-columns: repeat(auto-fill,minmax(130px,1fr)); }
+ .advanced-day-dialog { width: 100%; max-width: 100%; padding: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .advanced-schedule-page .day-card { transition: none; } }
