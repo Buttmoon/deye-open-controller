@@ -175,7 +175,7 @@ func listenAddress() string {
 	if addr := strings.TrimSpace(os.Getenv("INVERTER_SCHEDULE_ADDR")); addr != "" {
 		return addr
 	}
-	return ":8081"
+	return ":8080"
 }
 
 func (a *App) Server() *http.Server {
