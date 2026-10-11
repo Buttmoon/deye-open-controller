@@ -352,7 +352,16 @@ type InverterLogExportColumn struct {
 	Checked     bool
 }
 
+type SyncAuthPageData struct {
+	Configured bool
+	Scheme     string
+	Token      string
+	Username   string
+	Password   string
+}
+
 type IntegrationPageData struct {
 	Title    string
 	Settings models.Settings
+	SyncAuth SyncAuthPageData
 }

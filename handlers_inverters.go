@@ -134,8 +134,17 @@ func (a *App) updateInverterSettingsHandler(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{OK: false, Message: "Ошибка сохранения настроек инвертора: " + err.Error()})
 		return
 	}
+	externalID := strings.TrimSpace(r.FormValue("external_id"))
+	if err := a.setInverterExternalID(id, externalID); err != nil {
+		msg := "Ошибка сохранения external_id: " + err.Error()
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			msg = "external_id уже используется другим инвертором"
+		}
+		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: msg})
+		return
+	}
 	a.recreateActiveSchedulerTask("inverter model changed")
 	a.restartInverterLogger("inverter model changed")
-	a.appendAppLog("info", "inverter settings updated", map[string]any{"component": "inverters", "inverter_id": id, "model_key": model.Key, "parameters_file": model.ParametersFile})
+	a.appendAppLog("info", "inverter settings updated", map[string]any{"component": "inverters", "inverter_id": id, "model_key": model.Key, "parameters_file": model.ParametersFile, "external_id": externalID})
 	writeJSON(w, http.StatusOK, jsonResponse{OK: true, Message: fmt.Sprintf("Настройки сохранены: %s.", model.Name) + note})
 }

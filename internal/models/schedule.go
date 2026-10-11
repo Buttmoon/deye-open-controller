@@ -10,7 +10,9 @@ type Schedule struct {
 	ViewMode          string
 	ScheduleJSON      string
 	AppliedTemplateID sql.NullInt64
+	Revision          int64
 	UpdatedAt         string
+	ClientUpdatedAt   sql.NullString
 }
 
 type HourConfig struct {

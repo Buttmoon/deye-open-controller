@@ -67,6 +67,36 @@
   </div>
 
   <div class="card">
+    <h2>Sync API (входящая авторизация)</h2>
+    <p class="muted">Отдельные учётные данные для <code>GET/PUT /api/schedules/{ref}</code> и <code>GET /api/inverter/screen?inverter_id=…</code>. Пока не настроены — эти маршруты отвечают 503. Не связаны с исходящей интеграцией выше.</p>
+    <div class="field">
+      <label for="syncAuthScheme">Схема</label>
+      <select id="syncAuthScheme">
+        <option value="" {{if eq .SyncAuth.Scheme ""}}selected{{end}}>Авто (Bearer и/или Basic по заполненным полям)</option>
+        <option value="bearer" {{if eq .SyncAuth.Scheme "bearer"}}selected{{end}}>Только Bearer</option>
+        <option value="basic" {{if eq .SyncAuth.Scheme "basic"}}selected{{end}}>Только Basic</option>
+        <option value="bearer_or_basic" {{if eq .SyncAuth.Scheme "bearer_or_basic"}}selected{{end}}>Bearer или Basic</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="syncAuthToken">Bearer Token</label>
+      <input id="syncAuthToken" type="password" value="{{.SyncAuth.Token}}" placeholder="Токен для Authorization: Bearer …" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="syncAuthUsername">Basic логин</label>
+      <input id="syncAuthUsername" value="{{.SyncAuth.Username}}" placeholder="Логин" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="syncAuthPassword">Basic пароль</label>
+      <input id="syncAuthPassword" type="password" value="{{.SyncAuth.Password}}" placeholder="Пароль" autocomplete="off">
+    </div>
+    <div class="muted" style="margin-top:4px;">Статус: {{if .SyncAuth.Configured}}настроено{{else}}не настроено (503 на Sync){{end}}</div>
+    <div class="button-row" style="margin-top:12px;">
+      <button class="btn btn-primary" type="button" id="saveSyncAuthBtn">Сохранить Sync auth</button>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Периодическая отправка</h2>
     <div class="field">
       <label for="pushInterval">Интервал отправки (секунды от начала часа)</label>
@@ -111,6 +141,22 @@
   authScheme?.addEventListener('change', function(){
     bearerFields.style.display = this.value === 'bearer' ? '' : 'none';
     basicFields.style.display = this.value === 'basic' ? '' : 'none';
+  });
+
+  document.getElementById('saveSyncAuthBtn')?.addEventListener('click', async function(){
+    const params = new URLSearchParams();
+    params.append('sync_api_auth_scheme', document.getElementById('syncAuthScheme')?.value || '');
+    params.append('sync_api_auth_token', document.getElementById('syncAuthToken')?.value || '');
+    params.append('sync_api_auth_username', document.getElementById('syncAuthUsername')?.value || '');
+    params.append('sync_api_auth_password', document.getElementById('syncAuthPassword')?.value || '');
+    try {
+      const {response, data} = await postForm('/integration/sync-auth/save', params);
+      if (!response.ok || !data.ok) { showPopup(data.message || 'Ошибка сохранения Sync auth', 'error'); return; }
+      showPopup(data.message || 'Sync auth сохранён');
+      setTimeout(() => window.location.reload(), 500);
+    } catch {
+      showPopup('Ошибка соединения с сервером', 'error');
+    }
   });
 
   document.getElementById('saveIntegrationBtn')?.addEventListener('click', async function(){

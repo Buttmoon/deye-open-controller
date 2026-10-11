@@ -273,6 +273,7 @@
                 <form class="form inverter-settings-form" method="POST" action="/inverters/settings">
                   <input type="hidden" name="id" value="{{.ID}}">
                   <div class="field"><label>Имя</label><input type="text" name="name" value="{{.Name}}"></div>
+                  <div class="field"><label>external_id (Sync API)</label><input type="text" name="external_id" value="{{.ExternalID}}" placeholder="Например: site-a-1"></div>
                   <div class="field"><label>Тип инвертора</label><select name="model_key" required>{{$inv := .}}{{range $.InverterModels}}<option value="{{.Key}}" {{if eq .Key $inv.ModelKey}}selected{{end}}>{{.Name}} · {{.ModelCode}}{{if .WriteRequiresConfirm}} · требует проверки{{end}}</option>{{end}}</select></div>
                   <label class="checkbox-line"><input type="checkbox" name="profile_write_confirmed" value="1" {{if .ProfileWriteConfirmed}}checked{{end}}> Я выполнил read-only сверку карты регистров и разрешаю запись выбранного профиля</label>
                   {{if and .WriteRequiresConfirm (not .ProfileWriteConfirmed)}}<span class="badge badge-warn" title="Чтение и мониторинг работают. Запись расписаний и ручные команды станут доступны после подтверждения профиля.">профиль не подтверждён — запись выключена</span>{{end}}

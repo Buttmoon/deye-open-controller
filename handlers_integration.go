@@ -15,11 +15,55 @@ func (a *App) integrationPageHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ошибка получения настроек", http.StatusInternalServerError)
 		return
 	}
-	data := IntegrationPageData{Title: "Интеграция", Settings: settings}
+	syncCfg := a.syncAuthConfig()
+	data := IntegrationPageData{
+		Title:    "Интеграция",
+		Settings: settings,
+		SyncAuth: SyncAuthPageData{
+			Configured: syncCfg.configured(),
+			Scheme:     syncCfg.Scheme,
+			Token:      syncCfg.Token,
+			Username:   syncCfg.Username,
+			Password:   syncCfg.Password,
+		},
+	}
 	if err := a.tmplIntegration.Execute(w, data); err != nil {
 		http.Error(w, "Ошибка рендеринга страницы интеграции", http.StatusInternalServerError)
 		log.Println(err)
 	}
+}
+
+func (a *App) saveSyncAuthSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{OK: false, Message: "Метод не поддерживается"})
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: "Ошибка чтения формы"})
+		return
+	}
+	scheme := strings.TrimSpace(r.FormValue("sync_api_auth_scheme"))
+	token := r.FormValue("sync_api_auth_token")
+	username := r.FormValue("sync_api_auth_username")
+	password := r.FormValue("sync_api_auth_password")
+	if err := a.saveSyncAuthSettings(scheme, token, username, password); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{OK: false, Message: "Ошибка сохранения Sync auth: " + err.Error()})
+		return
+	}
+	cfg := a.syncAuthConfig()
+	a.recordHistory(HistoryEntry{
+		OperationType: opConfigChange, Status: histApplied, Initiator: requestInitiator(r),
+		Message: "Обновлены учётные данные Sync API",
+		Details: map[string]any{"scheme": cfg.Scheme, "configured": cfg.configured()},
+	})
+	a.appendAppLog("info", "sync api auth settings updated", map[string]any{
+		"component":   "sync_api",
+		"scheme":      cfg.Scheme,
+		"configured":  cfg.configured(),
+		"has_token":   strings.TrimSpace(cfg.Token) != "",
+		"has_username": strings.TrimSpace(cfg.Username) != "",
+	})
+	writeJSON(w, http.StatusOK, jsonResponse{OK: true, Message: "Настройки Sync API сохранены"})
 }
 
 func (a *App) saveIntegrationSettingsHandler(w http.ResponseWriter, r *http.Request) {

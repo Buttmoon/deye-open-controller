@@ -10,6 +10,7 @@ type Inverter struct {
 	ModelCode             string
 	ParametersFile        string
 	ValidationStatus      string
+	ExternalID            string
 	ProfileWriteConfirmed bool
 	WriteRequiresConfirm  bool
 	IsOnline              bool

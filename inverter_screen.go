@@ -3,9 +3,11 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -62,10 +64,44 @@ func (a *App) apiInverterScreenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target, source, err := a.defaultModbusTarget()
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, InverterScreenResponse{OK: false, Message: "Активный инвертор не найден: " + err.Error()})
-		return
+	refQuery := strings.TrimSpace(r.URL.Query().Get("inverter_id"))
+	syncMode := refQuery != ""
+	// Gate Sync auth on inverter_id presence — never on Authorization alone.
+	if syncMode {
+		if !a.requireSyncAuth(w, r) {
+			return
+		}
+	}
+
+	var target runtimeScheduledItem
+	var source string
+	var err error
+	allowLegacyLogs := true
+	if syncMode {
+		inverterID, canonicalRef, refErr := a.resolveSyncDeviceRef(refQuery)
+		if refErr != nil {
+			var se *syncDeviceRefError
+			if errors.As(refErr, &se) {
+				writeSyncError(w, se.Status, se.Code, se.Message)
+				return
+			}
+			writeSyncError(w, http.StatusInternalServerError, "internal_error", "failed to resolve device ref")
+			return
+		}
+		item, itemErr := a.runtimeScheduledItemByID(inverterID)
+		if itemErr != nil {
+			writeSyncError(w, http.StatusNotFound, "device_not_found", "device not found")
+			return
+		}
+		target = item
+		source = "sync_ref:" + canonicalRef
+		allowLegacyLogs = false
+	} else {
+		target, source, err = a.defaultModbusTarget()
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, InverterScreenResponse{OK: false, Message: "Активный инвертор не найден: " + err.Error()})
+			return
+		}
 	}
 
 	// Без явного refresh экран не обращается к Modbus: первое корректное значение
@@ -95,7 +131,15 @@ func (a *App) apiInverterScreenHandler(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusInternalServerError, InverterScreenResponse{OK: false, Message: "Ошибка чтения настроек: " + settingsErr.Error()})
 			return
 		}
-		a.runInverterLoggingOnce(settings, "screen visualization manual refresh")
+		if syncMode {
+			logTarget := activeInverterTarget{
+				ID: target.InverterID, Name: target.InverterName, IP: target.IP, Port: target.Port,
+				ModelKey: target.ModelKey, ModelName: target.ModelName, ParametersFile: target.ParametersFile,
+			}
+			a.runInverterLoggingTargetOnce(settings, "screen visualization manual refresh", logTarget, 1, 1)
+		} else {
+			a.runInverterLoggingOnce(settings, "screen visualization manual refresh")
+		}
 		latest, latestErr := a.getLatestInverterLogJSONForInverterID(target.InverterID)
 		if latestErr == nil && usableGridPeakLogRecord(latest) {
 			record = latest
@@ -104,7 +148,7 @@ func (a *App) apiInverterScreenHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if record == nil {
-		record, sourceFile, err = a.findFirstUsableGridPeakLogRecord(target.InverterID)
+		record, sourceFile, err = a.findFirstUsableGridPeakLogRecord(target.InverterID, allowLegacyLogs)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, InverterScreenResponse{OK: false, Message: "Не удалось получить первое сохранённое значение ограничения: " + err.Error()})
 			return
@@ -225,7 +269,7 @@ var gridPeakRecordCache struct {
 // findFirstUsableGridPeakLogRecord scans log files newest first. The result is
 // cached and reused while the found file and all newer files are unchanged in
 // name and size, which avoids re-reading large log files on every page load.
-func (a *App) findFirstUsableGridPeakLogRecord(inverterID int64) (map[string]any, string, error) {
+func (a *App) findFirstUsableGridPeakLogRecord(inverterID int64, allowLegacyUntaggedLogs bool) (map[string]any, string, error) {
 	files, err := listInverterLogFiles()
 	if err != nil {
 		return nil, "", err
@@ -236,11 +280,15 @@ func (a *App) findFirstUsableGridPeakLogRecord(inverterID int64) (map[string]any
 	if ok {
 		valid := false
 		if entry.legacy {
-			valid = len(files) == len(entry.preceding)
-			for _, f := range files {
-				if size, known := entry.preceding[f.Name]; !known || size != f.SizeBytes {
-					valid = false
-					break
+			if !allowLegacyUntaggedLogs {
+				valid = false
+			} else {
+				valid = len(files) == len(entry.preceding)
+				for _, f := range files {
+					if size, known := entry.preceding[f.Name]; !known || size != f.SizeBytes {
+						valid = false
+						break
+					}
 				}
 			}
 		} else {
@@ -260,7 +308,7 @@ func (a *App) findFirstUsableGridPeakLogRecord(inverterID int64) (map[string]any
 			return cloneRecord(entry.record), entry.file, nil
 		}
 	}
-	record, file, legacy, err := a.scanFirstUsableGridPeakLogRecord(inverterID, files)
+	record, file, legacy, err := a.scanFirstUsableGridPeakLogRecord(inverterID, files, allowLegacyUntaggedLogs)
 	if err != nil {
 		return nil, "", err
 	}
@@ -290,10 +338,14 @@ func cloneRecord(in map[string]any) map[string]any {
 	return out
 }
 
-func (a *App) scanFirstUsableGridPeakLogRecord(inverterID int64, files []InverterLogFileInfo) (map[string]any, string, bool, error) {
-	// Сначала ищем запись именно этого инвертора, затем поддерживаем старые
-	// файлы без inverter_id. В каждом файле берётся первое пригодное значение.
-	for _, legacy := range []bool{false, true} {
+func (a *App) scanFirstUsableGridPeakLogRecord(inverterID int64, files []InverterLogFileInfo, allowLegacyUntaggedLogs bool) (map[string]any, string, bool, error) {
+	// Сначала ищем запись именно этого инвертора, затем (если разрешено)
+	// поддерживаем старые файлы без inverter_id. В каждом файле берётся первое пригодное значение.
+	legacyModes := []bool{false}
+	if allowLegacyUntaggedLogs {
+		legacyModes = append(legacyModes, true)
+	}
+	for _, legacy := range legacyModes {
 		for _, file := range files {
 			records, readErr := readAllLogRecords(inverterLogDir + "/" + file.Name)
 			if readErr != nil {
@@ -316,6 +368,23 @@ func (a *App) scanFirstUsableGridPeakLogRecord(inverterID int64, files []Inverte
 		}
 	}
 	return nil, "", false, fmt.Errorf("в файлах логов нет корректного grid_peak_shaving_power")
+}
+
+func (a *App) runtimeScheduledItemByID(inverterID int64) (runtimeScheduledItem, error) {
+	var item runtimeScheduledItem
+	var profileWriteConfirmed int
+	err := a.db.QueryRow(`SELECT id, name, ip, port, model_key, COALESCE(profile_write_confirmed, 0) FROM inverters WHERE id = ?`, inverterID).
+		Scan(&item.InverterID, &item.InverterName, &item.IP, &item.Port, &item.ModelKey, &profileWriteConfirmed)
+	if err != nil {
+		return item, err
+	}
+	item.ProfileWriteConfirmed = profileWriteConfirmed == 1
+	model, modelErr := findInverterModel(item.ModelKey)
+	if modelErr != nil {
+		return item, modelErr
+	}
+	item.ModelKey, item.ModelName, item.ParametersFile = model.Key, model.Name, model.ParametersFile
+	return item, nil
 }
 
 func (a *App) loadOrSeedStoredGridPeakState(inverterID int64, maxW int, record map[string]any) (storedGridPeakState, bool, error) {

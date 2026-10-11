@@ -83,9 +83,11 @@ func (a *App) registerRoutes() {
 	a.mux.HandleFunc("/api/templates/", a.apiTemplateByIDHandler)
 	a.mux.HandleFunc("/api/schedules", a.apiSchedulesHandler)
 	a.mux.HandleFunc("/api/schedules/bind-template", a.apiBindTemplateHandler)
+	a.mux.HandleFunc("/api/schedules/", a.apiScheduleSyncHandler)
 
 	a.mux.HandleFunc("/integration", a.integrationPageHandler)
 	a.mux.HandleFunc("/integration/save", a.saveIntegrationSettingsHandler)
+	a.mux.HandleFunc("/integration/sync-auth/save", a.saveSyncAuthSettingsHandler)
 	a.mux.HandleFunc("/integration/test", a.testIntegrationPushHandler)
 	a.mux.HandleFunc("/integration/preview", a.previewIntegrationPayloadHandler)
 

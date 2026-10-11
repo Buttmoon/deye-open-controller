@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -66,8 +67,12 @@ func normalizeInverterName(inv *models.Inverter) {
 func (a *App) scanInverterRows(rows interface{ Scan(dest ...any) error }) (models.Inverter, error) {
 	var inv models.Inverter
 	var hasSchedule, scheduleEnabled, hasTemplate, profileWriteConfirmed int
-	if err := rows.Scan(&inv.ID, &inv.Name, &inv.IP, &inv.Port, &inv.ModelKey, &profileWriteConfirmed, &hasSchedule, &scheduleEnabled, &hasTemplate, &inv.AppliedTemplateID, &inv.AppliedTemplate); err != nil {
+	var externalID sql.NullString
+	if err := rows.Scan(&inv.ID, &inv.Name, &inv.IP, &inv.Port, &inv.ModelKey, &profileWriteConfirmed, &externalID, &hasSchedule, &scheduleEnabled, &hasTemplate, &inv.AppliedTemplateID, &inv.AppliedTemplate); err != nil {
 		return inv, err
+	}
+	if externalID.Valid {
+		inv.ExternalID = strings.TrimSpace(externalID.String)
 	}
 	normalizeInverterName(&inv)
 	applyInverterModelMetadata(&inv)
@@ -98,6 +103,7 @@ func (a *App) getPaginatedInvertersNoCheck(search string, page, perPage int) ([]
 	rows, err := a.db.Query(`
 		SELECT i.id, i.name, i.ip, i.port, i.model_key,
 		COALESCE(i.profile_write_confirmed, 0),
+		i.external_id,
 		CASE WHEN s.id IS NOT NULL THEN 1 ELSE 0 END,
 		COALESCE(s.is_enabled, 0),
 		CASE WHEN s.applied_template_id IS NOT NULL THEN 1 ELSE 0 END,
@@ -130,6 +136,7 @@ func (a *App) getInvertersByIDs(ids []int64) ([]models.Inverter, error) {
 	query := fmt.Sprintf(`
 		SELECT i.id, i.name, i.ip, i.port, i.model_key,
 		COALESCE(i.profile_write_confirmed, 0),
+		i.external_id,
 		CASE WHEN s.id IS NOT NULL THEN 1 ELSE 0 END,
 		COALESCE(s.is_enabled, 0),
 		CASE WHEN s.applied_template_id IS NOT NULL THEN 1 ELSE 0 END,
@@ -193,6 +200,7 @@ func (a *App) getAllInvertersNoCheck() ([]models.Inverter, error) {
 	rows, err := a.db.Query(`
 		SELECT i.id, i.name, i.ip, i.port, i.model_key,
 		COALESCE(i.profile_write_confirmed, 0),
+		i.external_id,
 		CASE WHEN s.id IS NOT NULL THEN 1 ELSE 0 END,
 		COALESCE(s.is_enabled, 0),
 		CASE WHEN s.applied_template_id IS NOT NULL THEN 1 ELSE 0 END,

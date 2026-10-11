@@ -35,6 +35,7 @@ func InitSQLiteAt(dbPath string) (*sql.DB, error) {
 		`PRAGMA cache_size=-64000;`,
 		`PRAGMA temp_store=MEMORY;`,
 		`PRAGMA mmap_size=268435456;`,
+		`PRAGMA busy_timeout=5000;`,
 	} {
 		if _, err := db.Exec(pragma); err != nil {
 			return nil, fmt.Errorf("failed to set pragma: %w", err)
@@ -78,6 +79,15 @@ func InitSQLiteAt(dbPath string) (*sql.DB, error) {
 	}
 
 	if err := ensureSchedulesAppliedTemplateColumn(db); err != nil {
+		return nil, err
+	}
+	if err := ensureInverterExternalIDColumn(db); err != nil {
+		return nil, err
+	}
+	if err := ensureSchedulesRevisionColumn(db); err != nil {
+		return nil, err
+	}
+	if err := ensureSchedulesClientUpdatedAtColumn(db); err != nil {
 		return nil, err
 	}
 
@@ -803,6 +813,70 @@ func ensureSchedulesAppliedTemplateColumn(db *sql.DB) error {
 		}
 	}
 
+	return nil
+}
+
+func tableHasColumn(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query(`PRAGMA table_info(` + table + `);`)
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect %s table: %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dfltValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+func ensureInverterExternalIDColumn(db *sql.DB) error {
+	has, err := tableHasColumn(db, "inverters", "external_id")
+	if err != nil {
+		return err
+	}
+	if !has {
+		if _, err := db.Exec(`ALTER TABLE inverters ADD COLUMN external_id TEXT;`); err != nil {
+			return fmt.Errorf("failed to add inverters.external_id: %w", err)
+		}
+	}
+	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_inverters_external_id ON inverters(external_id) WHERE external_id IS NOT NULL AND TRIM(external_id) <> '';`); err != nil {
+		return fmt.Errorf("failed to create inverters.external_id unique index: %w", err)
+	}
+	return nil
+}
+
+func ensureSchedulesRevisionColumn(db *sql.DB) error {
+	has, err := tableHasColumn(db, "schedules", "revision")
+	if err != nil {
+		return err
+	}
+	if !has {
+		if _, err := db.Exec(`ALTER TABLE schedules ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;`); err != nil {
+			return fmt.Errorf("failed to add schedules.revision: %w", err)
+		}
+	}
+	return nil
+}
+
+func ensureSchedulesClientUpdatedAtColumn(db *sql.DB) error {
+	has, err := tableHasColumn(db, "schedules", "client_updated_at")
+	if err != nil {
+		return err
+	}
+	if !has {
+		if _, err := db.Exec(`ALTER TABLE schedules ADD COLUMN client_updated_at TEXT;`); err != nil {
+			return fmt.Errorf("failed to add schedules.client_updated_at: %w", err)
+		}
+	}
 	return nil
 }
 
